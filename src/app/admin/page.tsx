@@ -55,7 +55,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "businesses" | "products" | "categories" | "invites" | "system"
+    "overview" | "businesses" | "products" | "categories" | "invites" | "metrics" | "system"
   >("overview");
 
   const [loading, setLoading] = useState(false);
@@ -698,6 +698,17 @@ export default function AdminPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab("metrics")}
+            className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "metrics"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-stone-300 hover:bg-stone-800 hover:text-white"
+            }`}
+          >
+            📈 Métricas & Tráfego
+          </button>
+
+          <button
             onClick={() => setActiveTab("system")}
             className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "system"
@@ -1307,6 +1318,218 @@ export default function AdminPage() {
         )}
 
         {/* ================= ABA 6: DIAGNÓSTICO DO SISTEMA ================= */}
+        {/* ================= ABA DE MÉTRICAS, GOOGLE ADS & DESEMPENHO ================= */}
+        {activeTab === "metrics" && (
+          <div className="space-y-6">
+            {/* Header da Aba */}
+            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+                  <span>Painel de Desempenho & Rastreamento de Tráfego</span>
+                </h2>
+                <p className="text-xs text-stone-500 mt-1">
+                  Métricas de visitantes, leads gerados via WhatsApp e integração com Google Ads / Analytics
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Eventos dataLayer Ativos</span>
+                </span>
+              </div>
+            </div>
+
+            {/* KPIs Globais */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-xs space-y-1">
+                <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Visualizações Totais
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-stone-900 block">
+                  {totalViews.toLocaleString("pt-BR")}
+                </span>
+                <span className="text-[11px] text-stone-500">Acessos a vitrines e lojas</span>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-xs space-y-1">
+                <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
+                  Leads WhatsApp Gerados
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 block">
+                  {totalClicks.toLocaleString("pt-BR")}
+                </span>
+                <span className="text-[11px] text-stone-500">Cliques diretos para pedidos</span>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-xs space-y-1">
+                <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">
+                  Taxa Média de Conversão
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 block">
+                  {avgConversion}%
+                </span>
+                <span className="text-[11px] text-stone-500">Cliques por visualização</span>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 shadow-xs space-y-1">
+                <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">
+                  Média por Empreendedor
+                </span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-purple-600 block">
+                  {businesses.length > 0 ? (totalClicks / businesses.length).toFixed(1) : "0"}
+                </span>
+                <span className="text-[11px] text-stone-500">Contatos por vitrine ativa</span>
+              </div>
+            </div>
+
+            {/* Tabela de Desempenho por Empreendedor */}
+            <div className="bg-white rounded-3xl border border-stone-200 shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-stone-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900">
+                    Ranking de Conversão dos Empreendedores
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Lojas ordenadas por volume de pedidos e cliques no WhatsApp
+                  </p>
+                </div>
+                <span className="text-xs text-stone-400 font-semibold">
+                  {businesses.length} cadastrados
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-stone-50 text-stone-500 font-semibold border-b border-stone-100">
+                    <tr>
+                      <th className="py-3 px-4">Loja / MEI</th>
+                      <th className="py-3 px-4">Bairro / Cidade</th>
+                      <th className="py-3 px-4 text-center">Visualizações</th>
+                      <th className="py-3 px-4 text-center">Contatos WhatsApp</th>
+                      <th className="py-3 px-4 text-center">Taxa de Conversão</th>
+                      <th className="py-3 px-4 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 text-stone-700">
+                    {[...businesses]
+                      .sort((a, b) => (b.whatsapp_clicks_count || 0) - (a.whatsapp_clicks_count || 0))
+                      .map((biz) => {
+                        const views = biz.views_count || 0;
+                        const clicks = biz.whatsapp_clicks_count || 0;
+                        const conv = views > 0 ? ((clicks / views) * 100).toFixed(1) : "0.0";
+
+                        return (
+                          <tr key={biz.id} className="hover:bg-stone-50/80 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-stone-900">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-stone-100 flex items-center justify-center text-stone-500 shrink-0">
+                                  <Store className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="truncate">{biz.name}</span>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-stone-500">
+                              {biz.neighborhood}, {biz.city}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-semibold">
+                              {views}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                                <MessageCircle className="w-3 h-3" />
+                                {clicks}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="font-extrabold text-stone-900">{conv}%</span>
+                                <div className="w-16 bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="bg-emerald-500 h-1.5 rounded-full"
+                                    style={{ width: `${Math.min(parseFloat(conv) * 3, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <button
+                                onClick={() => openEditBusiness(biz)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <span>Ver / Editar</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Central de Integração: Google Ads, GA4 e Meta Pixel */}
+            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-stone-900">
+                  Integrações de Anúncios e Rastreamento
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Conecte suas contas de publicidade para criar campanhas pagas de alta conversão
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800">Google Analytics 4</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      Pronto
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Mede visualizações de páginas, pesquisas de bairro e tempo de retenção.
+                  </p>
+                  <div className="text-[11px] font-mono text-stone-600 bg-white p-2 rounded-lg border border-stone-200">
+                    NEXT_PUBLIC_GA_MEASUREMENT_ID
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800">Google Ads (Conversões)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                      Integrado
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Dispara o evento <code>conversion / generate_lead</code> a cada clique no WhatsApp.
+                  </p>
+                  <div className="text-[11px] font-mono text-stone-600 bg-white p-2 rounded-lg border border-stone-200">
+                    NEXT_PUBLIC_GADS_CONVERSION_ID
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-800">Meta Pixel (Insta/Face)</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                      Integrado
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Dispara <code>fbq('track', 'Lead')</code> para campanhas de WhatsApp no Instagram.
+                  </p>
+                  <div className="text-[11px] font-mono text-stone-600 bg-white p-2 rounded-lg border border-stone-200">
+                    NEXT_PUBLIC_META_PIXEL_ID
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "system" && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-xs space-y-6">
             <div>

@@ -12,6 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import { AnalyticsScripts } from "@/components/AnalyticsScripts";
+
 export const metadata: Metadata = {
   title: "Feira Digital | Vitrines e Produtos Locais direto no WhatsApp",
   description:
@@ -28,7 +30,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <AnalyticsScripts />
+      </body>
     </html>
   );
 }

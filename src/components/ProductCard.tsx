@@ -6,6 +6,7 @@ import { MessageCircle, Package, Share2, Check } from "lucide-react";
 import { Product } from "@/types";
 import { buildProductWhatsAppLink, buildProductShareLink } from "@/lib/whatsapp";
 import { trackWhatsAppClick } from "@/app/actions";
+import { trackWhatsAppLead } from "@/lib/analytics";
 
 interface ProductCardProps {
   product: Product;
@@ -52,6 +53,12 @@ export function ProductCard({
     if (businessId) {
       trackWhatsAppClick(businessId).catch(() => {});
     }
+    trackWhatsAppLead({
+      businessId,
+      businessName,
+      productTitle: product.title,
+      price: product.price,
+    });
   };
 
   const handleShareClick = (e: React.MouseEvent) => {

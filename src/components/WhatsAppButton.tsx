@@ -3,6 +3,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import { trackWhatsAppClick } from "@/app/actions";
+import { trackWhatsAppLead } from "@/lib/analytics";
 
 interface WhatsAppButtonProps {
   href: string;
@@ -10,6 +11,7 @@ interface WhatsAppButtonProps {
   variant?: "primary" | "secondary" | "floating";
   className?: string;
   businessId?: string;
+  businessName?: string;
 }
 
 export function WhatsAppButton({
@@ -18,11 +20,16 @@ export function WhatsAppButton({
   variant = "primary",
   className = "",
   businessId,
+  businessName,
 }: WhatsAppButtonProps) {
   const handleClick = () => {
     if (businessId) {
       trackWhatsAppClick(businessId).catch(() => {});
     }
+    trackWhatsAppLead({
+      businessId,
+      businessName,
+    });
   };
 
   const baseStyles =
