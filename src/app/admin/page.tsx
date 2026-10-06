@@ -45,8 +45,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const ADMIN_DEFAULT_EMAIL = "admin@feiradigital.com";
-const ADMIN_DEFAULT_PASSWORD = "admin123";
+const ADMIN_USERNAME = "suporte";
+const ADMIN_PASSWORD = "D1sruptiv3";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -125,9 +125,8 @@ export default function AdminPage() {
     setLoginError("");
 
     if (
-      (adminEmail.trim().toLowerCase() === ADMIN_DEFAULT_EMAIL ||
-        adminEmail.trim().toLowerCase() === "admin") &&
-      adminPassword === ADMIN_DEFAULT_PASSWORD
+      adminEmail.trim().toLowerCase() === ADMIN_USERNAME &&
+      adminPassword === ADMIN_PASSWORD
     ) {
       setIsAuthenticated(true);
       sessionStorage.setItem("feira_admin_auth", "true");
@@ -524,17 +523,6 @@ export default function AdminPage() {
             </p>
           </div>
 
-          {/* Dica amigável de credencial */}
-          <div className="p-3 bg-stone-900/80 rounded-2xl border border-stone-800 text-xs text-stone-300 space-y-1">
-            <span className="font-bold text-emerald-400 block">Credenciais Padrão do Sistema:</span>
-            <div className="font-mono text-[11px] text-stone-400">
-              E-mail: <strong className="text-stone-200">{ADMIN_DEFAULT_EMAIL}</strong>
-            </div>
-            <div className="font-mono text-[11px] text-stone-400">
-              Senha: <strong className="text-stone-200">{ADMIN_DEFAULT_PASSWORD}</strong>
-            </div>
-          </div>
-
           {loginError && (
             <div className="p-3 rounded-xl bg-red-950/60 border border-red-800/60 text-red-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -545,14 +533,14 @@ export default function AdminPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-stone-300 mb-1.5">
-                E-mail ou Usuário Master
+                Usuário Administrador
               </label>
               <input
                 type="text"
                 required
                 value={adminEmail}
                 onChange={e => setAdminEmail(e.target.value)}
-                placeholder="admin@feiradigital.com"
+                placeholder="Digite seu usuário"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-stone-800 bg-stone-900 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
               />
             </div>
@@ -1347,11 +1335,10 @@ export default function AdminPage() {
 
               <div className="p-4 rounded-2xl border border-stone-200 bg-stone-50 space-y-2">
                 <span className="text-xs font-bold text-stone-700 block">
-                  Segurança & Credencial Master
+                  Segurança & Controle de Acesso
                 </span>
                 <div className="text-xs text-stone-600 space-y-1 font-mono text-[11px]">
-                  <div>Usuário: {ADMIN_DEFAULT_EMAIL}</div>
-                  <div>Senha: {ADMIN_DEFAULT_PASSWORD}</div>
+                  <div className="text-emerald-700 font-semibold">✓ Acesso Master Ativo e Protegido</div>
                   <div className="text-stone-400">Autenticação: Session Storage Segura</div>
                 </div>
               </div>
