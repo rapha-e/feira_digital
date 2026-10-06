@@ -45,8 +45,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const ADMIN_USERNAME = "suporte";
-const ADMIN_PASSWORD = "D1sruptiv3";
+const ADMIN_USERNAMES = ["suporte", "suporte@feiradigital.com"];
+const ADMIN_PASSWORDS = ["d1sruptive", "D1sruptiv3", "d1sruptiv3", "D1sruptive"];
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -127,10 +127,11 @@ export default function AdminPage() {
     e.preventDefault();
     setLoginError("");
 
-    if (
-      adminEmail.trim().toLowerCase() === ADMIN_USERNAME &&
-      adminPassword === ADMIN_PASSWORD
-    ) {
+    const userClean = adminEmail.trim().toLowerCase();
+    const isUserValid = ADMIN_USERNAMES.includes(userClean);
+    const isPassValid = ADMIN_PASSWORDS.includes(adminPassword);
+
+    if (isUserValid && isPassValid) {
       setIsAuthenticated(true);
       sessionStorage.setItem("feira_admin_auth", "true");
       loadAllData();
