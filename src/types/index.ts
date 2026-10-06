@@ -13,6 +13,13 @@ export interface Business {
   category_id: string | null;
   neighborhood: string;
   city: string;
+  state?: string | null;
+  cep?: string | null;
+  street_address?: string | null;
+  address_number?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance_km?: number | null;
   whatsapp: string;
   avatar_url: string | null;
   bio: string | null;

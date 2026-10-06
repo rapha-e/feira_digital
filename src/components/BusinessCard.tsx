@@ -9,9 +9,11 @@ import {
   ShoppingBag,
   CreditCard,
   QrCode,
+  Navigation,
 } from "lucide-react";
 import { BusinessWithProducts } from "@/types";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { formatDistance } from "@/lib/geo";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 interface BusinessCardProps {
@@ -48,6 +50,14 @@ export function BusinessCard({ business }: BusinessCardProps) {
             {business.category && (
               <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                 {business.category.name}
+              </span>
+            )}
+
+            {/* RF04: Selo de Proximidade */}
+            {business.distance_km !== undefined && business.distance_km !== null && business.distance_km < 900 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                <Navigation className="w-2.5 h-2.5 fill-emerald-700 text-emerald-700 shrink-0" />
+                <span>A {formatDistance(business.distance_km)} de você</span>
               </span>
             )}
 

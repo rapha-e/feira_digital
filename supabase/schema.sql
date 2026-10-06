@@ -22,6 +22,13 @@ create table if not exists public.businesses (
     category_id uuid references public.categories(id) on delete set null,
     neighborhood text not null,
     city text not null,
+    -- Endereço Estruturado e Geolocalização (PRD Regionalização MEI)
+    cep text,
+    street_address text,
+    address_number text,
+    state text default 'DF',
+    latitude double precision,
+    longitude double precision,
     whatsapp text not null,
     avatar_url text,
     bio text,
@@ -219,3 +226,19 @@ insert into public.categories (name, slug, icon) values
 ('Moda & Acessórios', 'moda-acessorios', 'Shirt'),
 ('Pet & Cuidados', 'pet-cuidados', 'Heart')
 on conflict (slug) do nothing;
+
+-- ============================================================
+-- MIGRAÇÃO DE GEOLOCALIZAÇÃO E ÍNDICES (PRD Regionalização MEI)
+-- ============================================================
+alter table public.businesses add column if not exists cep text;
+alter table public.businesses add column if not exists street_address text;
+alter table public.businesses add column if not exists address_number text;
+alter table public.businesses add column if not exists state text default 'DF';
+alter table public.businesses add column if not exists latitude double precision;
+alter table public.businesses add column if not exists longitude double precision;
+
+-- Índices para garantir performance de resposta < 300ms
+create index if not exists idx_businesses_coords on public.businesses (latitude, longitude);
+create index if not exists idx_businesses_neighborhood on public.businesses (lower(neighborhood));
+create index if not exists idx_businesses_city on public.businesses (lower(city));
+

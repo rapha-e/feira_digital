@@ -42,7 +42,12 @@ import {
   CreditCard,
   Sparkles,
   Layers,
+  Navigation,
+  Compass,
+  Search,
+  Loader2,
 } from "lucide-react";
+import { fetchAddressByCep } from "@/lib/geo";
 
 function DashboardContent() {
   const router = useRouter();
@@ -69,6 +74,14 @@ function DashboardContent() {
   const [categoryId, setCategoryId] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("Brasília");
+  const [state, setState] = useState("DF");
+  const [cep, setCep] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [loadingCepBiz, setLoadingCepBiz] = useState(false);
+  const [loadingGpsBiz, setLoadingGpsBiz] = useState(false);
   const [whatsapp, setWhatsapp] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -167,6 +180,12 @@ function DashboardContent() {
         setCategoryId(b.category_id || "");
         setNeighborhood(b.neighborhood);
         setCity(b.city);
+        setState(b.state || "DF");
+        setCep(b.cep || "");
+        setStreetAddress(b.street_address || "");
+        setAddressNumber(b.address_number || "");
+        setLatitude(b.latitude ?? null);
+        setLongitude(b.longitude ?? null);
         setWhatsapp(b.whatsapp);
         setBio(b.bio || "");
         setAvatarUrl(b.avatar_url || "");
@@ -313,6 +332,72 @@ function DashboardContent() {
     }
   };
 
+  // RF02: Busca de CEP com Auto-preenchimento e Geocodificação
+  const handleSearchCepProfile = async () => {
+    if (!cep.trim()) return;
+    setLoadingCepBiz(true);
+    try {
+      const addr = await fetchAddressByCep(cep);
+      if (addr) {
+        if (addr.street) setStreetAddress(addr.street);
+        if (addr.neighborhood) setNeighborhood(addr.neighborhood);
+        if (addr.city) setCity(addr.city);
+        if (addr.state) setState(addr.state);
+        if (addr.lat && addr.lng) {
+          setLatitude(addr.lat);
+          setLongitude(addr.lng);
+        }
+        setNotification({
+          type: "success",
+          text: "Endereço e coordenadas identificados pelo CEP!",
+        });
+      } else {
+        setNotification({
+          type: "error",
+          text: "CEP não encontrado. Preencha os campos manualmente.",
+        });
+      }
+    } catch {
+      setNotification({
+        type: "error",
+        text: "Erro ao buscar dados do CEP.",
+      });
+    } finally {
+      setLoadingCepBiz(false);
+    }
+  };
+
+  // RF02: Captura GPS exata do MEI
+  const handleGetGpsProfile = () => {
+    if (!navigator.geolocation) {
+      setNotification({
+        type: "error",
+        text: "Geolocalização não suportada no seu navegador.",
+      });
+      return;
+    }
+    setLoadingGpsBiz(true);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setLatitude(pos.coords.latitude);
+        setLongitude(pos.coords.longitude);
+        setLoadingGpsBiz(false);
+        setNotification({
+          type: "success",
+          text: `Coordenadas capturadas: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+        });
+      },
+      () => {
+        setLoadingGpsBiz(false);
+        setNotification({
+          type: "error",
+          text: "Não foi possível obter sua posição via GPS.",
+        });
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
   // Save / Update Business Profile
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,6 +407,15 @@ function DashboardContent() {
     const formattedPhone = cleanPhone.length === 10 || cleanPhone.length === 11
       ? `55${cleanPhone}`
       : cleanPhone;
+
+    const geoPayload = {
+      cep: cep.trim() || null,
+      street_address: streetAddress.trim() || null,
+      address_number: addressNumber.trim() || null,
+      state: state.trim() || "DF",
+      latitude: latitude !== null ? Number(latitude) : null,
+      longitude: longitude !== null ? Number(longitude) : null,
+    };
 
     if (!isSupabaseConfigured()) {
       const newId = business?.id || `biz-${Date.now()}`;
@@ -334,6 +428,7 @@ function DashboardContent() {
         category_id: categoryId || null,
         neighborhood: neighborhood.trim(),
         city: city.trim(),
+        ...geoPayload,
         whatsapp: formattedPhone,
         bio: bio.trim(),
         avatar_url: avatarUrl || null,
@@ -381,6 +476,7 @@ function DashboardContent() {
           category_id: categoryId || null,
           neighborhood: neighborhood.trim(),
           city: city.trim(),
+          ...geoPayload,
           whatsapp: formattedPhone,
           bio: bio.trim(),
           avatar_url: avatarUrl || null,
@@ -1465,32 +1561,180 @@ function DashboardContent() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    Bairro *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={neighborhood}
-                    onChange={e => setNeighborhood(e.target.value)}
-                    placeholder="Ex: Centro"
-                    className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                  />
-                </div>
+                {/* Endereço Estruturado e Geolocalização (RF02) */}
+                <div className="col-span-full bg-stone-50 border border-stone-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-emerald-600" />
+                        Localização e Endereço do Empreendimento
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        Usado para destacar sua loja para clientes próximos no raio de entrega
+                      </p>
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    Cidade *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    placeholder="Ex: Brasília"
-                    className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                  />
+                    <button
+                      type="button"
+                      onClick={handleGetGpsProfile}
+                      disabled={loadingGpsBiz}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {loadingGpsBiz ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Obtendo GPS...
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-3.5 h-3.5" />
+                          Usar Meu GPS Atual
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        CEP (com busca automática)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={cep}
+                          onChange={e => setCep(e.target.value)}
+                          onBlur={handleSearchCepProfile}
+                          placeholder="Ex: 70000-000"
+                          maxLength={9}
+                          className="w-full px-3 py-2 pr-9 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSearchCepProfile}
+                          disabled={loadingCepBiz}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-emerald-600 transition-colors p-1"
+                          title="Buscar CEP"
+                        >
+                          {loadingCepBiz ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                          ) : (
+                            <Search className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        Logradouro / Rua
+                      </label>
+                      <input
+                        type="text"
+                        value={streetAddress}
+                        onChange={e => setStreetAddress(e.target.value)}
+                        placeholder="Ex: Rua das Flores, Bloco B"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        Número
+                      </label>
+                      <input
+                        type="text"
+                        value={addressNumber}
+                        onChange={e => setAddressNumber(e.target.value)}
+                        placeholder="Ex: 120"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        Bairro *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={neighborhood}
+                        onChange={e => setNeighborhood(e.target.value)}
+                        placeholder="Ex: Centro"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        Cidade *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={city}
+                        onChange={e => setCity(e.target.value)}
+                        placeholder="Ex: Brasília"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 mb-1">
+                        Estado (UF)
+                      </label>
+                      <input
+                        type="text"
+                        value={state}
+                        onChange={e => setState(e.target.value.toUpperCase())}
+                        maxLength={2}
+                        placeholder="DF"
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-stone-200/60">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                        Coordenadas: Latitude
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={latitude !== null ? latitude : ""}
+                        onChange={e => setLatitude(e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="Ex: -15.7942"
+                        className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                        Coordenadas: Longitude
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={longitude !== null ? longitude : ""}
+                        onChange={e => setLongitude(e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="Ex: -47.8822"
+                        className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {latitude !== null && longitude !== null ? (
+                    <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                      ✓ Coordenadas ativas ({latitude.toFixed(4)}, {longitude.toFixed(4)}). Clientes em raio de 5 a 10 km encontrarão você com prioridade!
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1.5 bg-amber-50/80 px-2.5 py-1.5 rounded-lg border border-amber-200/60">
+                      ⚠️ Digite o CEP ou clique em "Usar Meu GPS Atual" para habilitar a busca por proximidade em tempo real.
+                    </p>
+                  )}
                 </div>
               </div>
 

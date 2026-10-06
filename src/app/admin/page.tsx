@@ -87,6 +87,9 @@ export default function AdminPage() {
   const [editBizCategoryId, setEditBizCategoryId] = useState("");
   const [editBizNeighborhood, setEditBizNeighborhood] = useState("");
   const [editBizCity, setEditBizCity] = useState("Brasília");
+  const [editBizCep, setEditBizCep] = useState("");
+  const [editBizLatitude, setEditBizLatitude] = useState<number | null>(null);
+  const [editBizLongitude, setEditBizLongitude] = useState<number | null>(null);
   const [editBizBio, setEditBizBio] = useState("");
   const [editBizLimit, setEditBizLimit] = useState(5);
   const [editBizIsOpen, setEditBizIsOpen] = useState(true);
@@ -208,6 +211,9 @@ export default function AdminPage() {
     setEditBizCategoryId(biz.category_id || "");
     setEditBizNeighborhood(biz.neighborhood);
     setEditBizCity(biz.city);
+    setEditBizCep(biz.cep || "");
+    setEditBizLatitude(biz.latitude !== undefined ? biz.latitude : null);
+    setEditBizLongitude(biz.longitude !== undefined ? biz.longitude : null);
     setEditBizBio(biz.bio || "");
     setEditBizLimit(biz.product_limit || 5);
     setEditBizIsOpen(biz.is_open !== false);
@@ -230,6 +236,9 @@ export default function AdminPage() {
         category_id: editBizCategoryId || null,
         neighborhood: editBizNeighborhood.trim(),
         city: editBizCity.trim(),
+        cep: editBizCep.trim() || null,
+        latitude: editBizLatitude !== null ? Number(editBizLatitude) : null,
+        longitude: editBizLongitude !== null ? Number(editBizLongitude) : null,
         bio: editBizBio.trim() || null,
         product_limit: Number(editBizLimit),
         is_open: editBizIsOpen,
@@ -1459,6 +1468,47 @@ export default function AdminPage() {
                       value={editBizCity}
                       onChange={e => setEditBizCity(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">
+                      CEP
+                    </label>
+                    <input
+                      type="text"
+                      value={editBizCep}
+                      onChange={e => setEditBizCep(e.target.value)}
+                      placeholder="70000-000"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">
+                      Latitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editBizLatitude !== null ? editBizLatitude : ""}
+                      onChange={e => setEditBizLatitude(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="-15.7942"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1">
+                      Longitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editBizLongitude !== null ? editBizLongitude : ""}
+                      onChange={e => setEditBizLongitude(e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="-47.8822"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </div>
                 </div>

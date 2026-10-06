@@ -4,7 +4,8 @@ import { Header } from "@/components/Header";
 import { SearchFilter } from "@/components/SearchFilter";
 import { BusinessCard } from "@/components/BusinessCard";
 import { getBusinesses, getCategories } from "@/lib/data";
-import { Store, Sparkles, ShieldCheck } from "lucide-react";
+import { sortBusinessesByProximity } from "@/lib/geo";
+import { Store, Sparkles, Navigation, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ interface HomePageProps {
     bairro?: string;
     q?: string;
     abertos?: string;
+    lat?: string;
+    lng?: string;
   }>;
 }
 
@@ -23,8 +26,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const currentNeighborhood = params.bairro;
   const currentQuery = params.q;
   const onlyOpen = params.abertos === "1";
+  const userLat = params.lat ? parseFloat(params.lat) : undefined;
+  const userLng = params.lng ? parseFloat(params.lng) : undefined;
 
-  const [categories, businesses] = await Promise.all([
+  const [categories, rawBusinesses] = await Promise.all([
     getCategories(),
     getBusinesses({
       categorySlug: currentCategory,
@@ -33,6 +38,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       onlyOpen,
     }),
   ]);
+
+  const businesses = sortBusinessesByProximity(rawBusinesses, {
+    lat: userLat,
+    lng: userLng,
+    neighborhood: currentNeighborhood,
+  });
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
@@ -72,13 +83,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
         {/* Showcase Grid */}
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
               <span>Vitrines em Destaque</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
                 {businesses.length}
               </span>
             </h2>
+
+            {userLat !== undefined && userLng !== undefined && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-semibold">
+                <Navigation className="w-3 h-3 fill-emerald-600 text-emerald-600" />
+                <span>Mais próximos de você</span>
+              </span>
+            )}
           </div>
 
           {businesses.length === 0 ? (
