@@ -6,7 +6,7 @@ import { BusinessCard } from "@/components/BusinessCard";
 import { getBusinesses, getCategories } from "@/lib/data";
 import { Store, Sparkles, ShieldCheck } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface HomePageProps {
   searchParams: Promise<{
