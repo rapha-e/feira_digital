@@ -13,6 +13,7 @@ export interface Business {
   category_id: string | null;
   neighborhood: string;
   city: string;
+  cnpj?: string | null;
   state?: string | null;
   cep?: string | null;
   street_address?: string | null;

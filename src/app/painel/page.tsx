@@ -48,6 +48,16 @@ import {
   Loader2,
 } from "lucide-react";
 import { fetchAddressByCep } from "@/lib/geo";
+import { fetchCnpjData, formatCnpj, mapCnaeToCategory } from "@/lib/cnpj";
+import { compressImage, formatFileSize } from "@/lib/imageCompression";
+import { LiveStorePreview } from "@/components/LiveStorePreview";
+import {
+  FileText,
+  Smartphone,
+  ArrowRight,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
 
 function DashboardContent() {
   const router = useRouter();
@@ -69,6 +79,11 @@ function DashboardContent() {
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   // Business Form State
+  const [cnpj, setCnpj] = useState("");
+  const [loadingCnpjBiz, setLoadingCnpjBiz] = useState(false);
+  const [profileStep, setProfileStep] = useState<1 | 2 | 3>(1);
+  const [showLivePreview, setShowLivePreview] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -240,6 +255,16 @@ function DashboardContent() {
     }
   };
 
+  const handleSlugChange = (val: string) => {
+    const clean = val
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9-]+/g, "")
+      .replace(/-+/g, "-");
+    setSlug(clean);
+  };
+
   // WhatsApp Smart Autofill / Formatter
   const handleWhatsAppChange = (val: string) => {
     const raw = val.replace(/\D/g, "");
@@ -331,6 +356,139 @@ function DashboardContent() {
       setUploadingAvatar(false);
     }
   };
+
+  // Busca e preenchimento inteligente de dados via CNPJ (Receita Federal / BrasilAPI)
+  const handleSearchCnpjProfile = async () => {
+    if (!cnpj.trim()) return;
+    setLoadingCnpjBiz(true);
+    try {
+      const data = await fetchCnpjData(cnpj);
+      if (data) {
+        if (!name.trim() || name === "Meu Negócio") {
+          setName(data.name);
+          setSlug(data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+        }
+        if (data.cep) setCep(data.cep);
+        if (data.streetAddress) setStreetAddress(data.streetAddress);
+        if (data.addressNumber) setAddressNumber(data.addressNumber);
+        if (data.neighborhood) setNeighborhood(data.neighborhood);
+        if (data.city) setCity(data.city);
+        if (data.state) setState(data.state);
+        if (data.phone && !whatsapp) {
+          setWhatsapp(data.phone.replace(/\D/g, ""));
+        }
+
+        // Auto-selecionar categoria correspondente ao CNAE
+        if (data.cnaeDescription) {
+          const suggestedSlug = mapCnaeToCategory(data.cnaeDescription);
+          if (suggestedSlug) {
+            const foundCat = categories.find(c => c.slug === suggestedSlug);
+            if (foundCat) setCategoryId(foundCat.id);
+          }
+        }
+
+        // Tentar obter coordenadas a partir do CEP retornado
+        if (data.cep) {
+          const addr = await fetchAddressByCep(data.cep);
+          if (addr?.lat && addr?.lng) {
+            setLatitude(addr.lat);
+            setLongitude(addr.lng);
+          }
+        }
+
+        setNotification({
+          type: "success",
+          text: `Dados da empresa "${data.name}" preenchidos via Receita Federal!`,
+        });
+      } else {
+        setNotification({
+          type: "error",
+          text: "CNPJ não encontrado ou inválido. Preencha os campos manualmente se desejar.",
+        });
+      }
+    } catch {
+      setNotification({
+        type: "error",
+        text: "Erro ao consultar dados do CNPJ.",
+      });
+    } finally {
+      setLoadingCnpjBiz(false);
+    }
+  };
+
+  // Auto-Save de rascunho em LocalStorage para segurança contra perdas
+  useEffect(() => {
+    if (loading || business) return;
+    const draft = {
+      name,
+      slug,
+      cnpj,
+      categoryId,
+      neighborhood,
+      city,
+      state,
+      cep,
+      streetAddress,
+      addressNumber,
+      latitude,
+      longitude,
+      whatsapp,
+      bio,
+    };
+    try {
+      localStorage.setItem("feira_draft_profile", JSON.stringify(draft));
+    } catch {}
+  }, [
+    name,
+    slug,
+    cnpj,
+    categoryId,
+    neighborhood,
+    city,
+    state,
+    cep,
+    streetAddress,
+    addressNumber,
+    latitude,
+    longitude,
+    whatsapp,
+    bio,
+    loading,
+    business,
+  ]);
+
+  // Recuperação de Rascunho inicial
+  useEffect(() => {
+    if (!loading && !business && !draftRestored) {
+      try {
+        const saved = localStorage.getItem("feira_draft_profile");
+        if (saved) {
+          const p = JSON.parse(saved);
+          if (p.name && !name) {
+            setName(p.name || "");
+            setSlug(p.slug || "");
+            setCnpj(p.cnpj || "");
+            if (p.categoryId) setCategoryId(p.categoryId);
+            if (p.neighborhood) setNeighborhood(p.neighborhood);
+            if (p.city) setCity(p.city);
+            if (p.state) setState(p.state);
+            if (p.cep) setCep(p.cep);
+            if (p.streetAddress) setStreetAddress(p.streetAddress);
+            if (p.addressNumber) setAddressNumber(p.addressNumber);
+            if (p.latitude) setLatitude(p.latitude);
+            if (p.longitude) setLongitude(p.longitude);
+            if (p.whatsapp) setWhatsapp(p.whatsapp);
+            if (p.bio) setBio(p.bio);
+            setDraftRestored(true);
+            setNotification({
+              type: "success",
+              text: "Rascunho de loja restaurado automaticamente do seu navegador!",
+            });
+          }
+        }
+      } catch {}
+    }
+  }, [loading, business, draftRestored]);
 
   // RF02: Busca de CEP com Auto-preenchimento e Geocodificação
   const handleSearchCepProfile = async () => {
@@ -1215,6 +1373,17 @@ function DashboardContent() {
               <span className="sm:hidden">{isOpen ? "Aberto" : "Fechado"}</span>
             </button>
 
+            {/* Botão de Prévia ao Vivo em Tela de Celular */}
+            <button
+              type="button"
+              onClick={() => setShowLivePreview(true)}
+              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200/90 text-xs font-bold hover:bg-emerald-100 transition-all cursor-pointer shadow-2xs"
+              title="Visualizar como os clientes veem sua loja no celular"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Prévia no Celular</span>
+            </button>
+
             {business?.slug && (
               <button
                 onClick={copyStoreLink}
@@ -1460,382 +1629,541 @@ function DashboardContent() {
 
         {/* 2-Column Responsive Layout on Desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
-          {/* Section 1: Business Profile Management */}
+          {/* Section 1: Business Profile Management (Stepper em 3 Passos) */}
           <section className="lg:col-span-5 bg-white rounded-2xl p-4 sm:p-6 border border-stone-200/90 shadow-xs space-y-4">
-            <div className="border-b border-stone-100 pb-3">
-              <h2 className="text-base sm:text-lg font-bold text-stone-900">
-                Dados do Negócio (Perfil MEI)
-              </h2>
-              <p className="text-xs text-stone-500">
-                Atualize as informações visíveis aos clientes e os canais de atendimento.
-              </p>
+            <div className="border-b border-stone-100 pb-3 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <span>Dados do Negócio (Perfil MEI)</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    Etapa {profileStep} de 3
+                  </span>
+                </h2>
+                <p className="text-xs text-stone-500">
+                  Preenchimento dinâmico, seguro e guiado passo a passo
+                </p>
+              </div>
+
+              {/* Botão de Auto-Save status */}
+              <div className="flex items-center gap-1.5 text-[11px] text-stone-400 bg-stone-50 px-2 py-1 rounded-md border border-stone-200/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Rascunho salvo</span>
+              </div>
+            </div>
+
+            {/* Abas / Stepper Navigation Header */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-stone-100 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setProfileStep(1)}
+                className={`py-2 px-1 rounded-lg transition-all text-center truncate cursor-pointer ${
+                  profileStep === 1
+                    ? "bg-white text-emerald-700 shadow-xs font-bold"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                1. Identidade
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileStep(2)}
+                className={`py-2 px-1 rounded-lg transition-all text-center truncate cursor-pointer ${
+                  profileStep === 2
+                    ? "bg-white text-emerald-700 shadow-xs font-bold"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                2. Endereço
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileStep(3)}
+                className={`py-2 px-1 rounded-lg transition-all text-center truncate cursor-pointer ${
+                  profileStep === 3
+                    ? "bg-white text-emerald-700 shadow-xs font-bold"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                3. Operação
+              </button>
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
-              {/* Avatar Upload */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-2">
-                  Foto de Perfil / Logotipo
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-stone-100 border border-stone-200 overflow-hidden shrink-0">
-                    {avatarUrl ? (
-                      <Image
-                        src={avatarUrl}
-                        alt="Logo do negócio"
-                        fill
-                        className="object-cover"
+              {/* === ETAPA 1: IDENTIDADE & CNPJ INTELIGENTE === */}
+              {profileStep === 1 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Caixa de Busca Inteligente por CNPJ */}
+                  <div className="bg-gradient-to-r from-emerald-50/80 to-teal-50/50 border border-emerald-200/80 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-emerald-600" />
+                        <span>Preenchimento Automático por CNPJ (Opcional)</span>
+                      </label>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                        Receita Federal
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-stone-500">
+                      Digite o CNPJ do seu MEI para preencher nome, endereço, categoria e dados em 1 segundo.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={cnpj}
+                        onChange={e => setCnpj(formatCnpj(e.target.value))}
+                        onBlur={handleSearchCnpjProfile}
+                        placeholder="00.000.000/0000-00"
+                        maxLength={18}
+                        className="flex-1 px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-stone-400">
-                        <Store className="w-8 h-8" />
-                      </div>
-                    )}
+                      <button
+                        type="button"
+                        onClick={handleSearchCnpjProfile}
+                        disabled={loadingCnpjBiz || !cnpj}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-xs shrink-0 cursor-pointer"
+                      >
+                        {loadingCnpjBiz ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Buscando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-3.5 h-3.5" />
+                            <span>Consultar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  <label className="cursor-pointer inline-flex items-center gap-2 py-2 px-3.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition-colors shadow-xs">
-                    <Upload className="w-4 h-4 text-stone-500" />
-                    <span>{uploadingAvatar ? "Enviando..." : "Alterar Foto"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      disabled={uploadingAvatar}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
+                  {/* Foto de Perfil / Logotipo com Otimização WebP */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-2">
+                      Foto de Perfil / Logotipo da Loja
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-stone-100 border border-stone-200 overflow-hidden shrink-0 shadow-2xs">
+                        {avatarUrl ? (
+                          <Image
+                            src={avatarUrl}
+                            alt="Logo do negócio"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-stone-400">
+                            <Store className="w-8 h-8" />
+                          </div>
+                        )}
+                      </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    Nome do Negócio *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={e => handleNameChange(e.target.value)}
-                    placeholder="Ex: Ateliê Doce Sabor"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                  />
-                </div>
+                      <div className="space-y-1">
+                        <label className="cursor-pointer inline-flex items-center gap-2 py-2 px-3.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition-colors shadow-xs">
+                          <Upload className="w-4 h-4 text-stone-500" />
+                          <span>{uploadingAvatar ? "Otimizando foto..." : "Escolher Imagem"}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarUpload}
+                            disabled={uploadingAvatar}
+                            className="hidden"
+                          />
+                        </label>
+                        <p className="text-[10px] text-stone-400">
+                          ⚡ Imagens são compactadas em WebP no navegador para carregar instantaneamente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    Link da Vitrine (Slug / URL) *
-                  </label>
-                  <div className="flex rounded-xl border border-stone-200 bg-stone-50 overflow-hidden shadow-xs">
-                    <span className="px-3 py-2.5 text-xs text-stone-400 select-none border-r border-stone-200">
-                      /
-                    </span>
+                  {/* Nome do Negócio */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Nome da Loja / Empreendimento *
+                    </label>
                     <input
                       type="text"
                       required
-                      value={slug}
-                      onChange={e => setSlug(e.target.value)}
-                      placeholder="atelie-doce-sabor"
-                      className="w-full px-3 py-2.5 bg-white text-stone-900 text-sm focus:outline-none"
+                      value={name}
+                      onChange={e => handleNameChange(e.target.value)}
+                      placeholder="Ex: Ateliê Doce Sabor"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
                     />
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    Categoria *
-                  </label>
-                  <select
-                    value={categoryId}
-                    onChange={e => setCategoryId(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                  >
-                    <option value="">Selecione</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Endereço Estruturado e Geolocalização (RF02) */}
-                <div className="col-span-full bg-stone-50 border border-stone-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-stone-900 flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-emerald-600" />
-                        Localização e Endereço do Empreendimento
-                      </h4>
-                      <p className="text-[11px] text-stone-500">
-                        Usado para destacar sua loja para clientes próximos no raio de entrega
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleGetGpsProfile}
-                      disabled={loadingGpsBiz}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-all disabled:opacity-50"
-                    >
-                      {loadingGpsBiz ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Obtendo GPS...
-                        </>
-                      ) : (
-                        <>
-                          <Navigation className="w-3.5 h-3.5" />
-                          Usar Meu GPS Atual
-                        </>
+                  {/* Link Único da Loja (Slug) com Live Feedback */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center justify-between">
+                      <span>Link Exclusivo da Sua Vitrine</span>
+                      {slug && (
+                        <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Link disponível
+                        </span>
                       )}
-                    </button>
+                    </label>
+                    <div className="flex items-center rounded-xl border border-stone-200 bg-stone-50 overflow-hidden shadow-xs focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500">
+                      <span className="px-3 text-xs text-stone-500 bg-stone-100/80 py-2.5 border-r border-stone-200 select-none">
+                        feiradigital.com/
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={slug}
+                        onChange={e => handleSlugChange(e.target.value)}
+                        placeholder="atelie-doce-sabor"
+                        className="w-full px-3 py-2.5 bg-transparent text-stone-900 text-sm focus:outline-none font-medium"
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        CEP (com busca automática)
-                      </label>
-                      <div className="relative">
+                  {/* Categoria */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Categoria Principal *
+                    </label>
+                    <select
+                      value={categoryId}
+                      onChange={e => setCategoryId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Biografia */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Biografia / Apresentação Rápida
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={bio}
+                      onChange={e => setBio(e.target.value)}
+                      placeholder="Conte um pouco sobre seus produtos, especialidades e diferenciais..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
+                    />
+                  </div>
+
+                  {/* Navegação Etapa 1 */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setProfileStep(2)}
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+                    >
+                      <span>Continuar para Endereço & Localização</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* === ETAPA 2: LOCALIZAÇÃO & ENDEREÇO ESTRUTURADO === */}
+              {profileStep === 2 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-4 space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-emerald-600" />
+                          Localização e Endereço do Empreendimento
+                        </h4>
+                        <p className="text-[11px] text-stone-500">
+                          Usado para priorizar sua vitrine para clientes num raio de até 10 km
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleGetGpsProfile}
+                        disabled={loadingGpsBiz}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+                      >
+                        {loadingGpsBiz ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Obtendo GPS...
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="w-3.5 h-3.5" />
+                            Usar Meu GPS Atual
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          CEP (com busca automática)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={cep}
+                            onChange={e => setCep(e.target.value)}
+                            onBlur={handleSearchCepProfile}
+                            placeholder="Ex: 70000-000"
+                            maxLength={9}
+                            className="w-full px-3 py-2 pr-9 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSearchCepProfile}
+                            disabled={loadingCepBiz}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-emerald-600 transition-colors p-1 cursor-pointer"
+                            title="Buscar CEP"
+                          >
+                            {loadingCepBiz ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                            ) : (
+                              <Search className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          Logradouro / Rua
+                        </label>
                         <input
                           type="text"
-                          value={cep}
-                          onChange={e => setCep(e.target.value)}
-                          onBlur={handleSearchCepProfile}
-                          placeholder="Ex: 70000-000"
-                          maxLength={9}
-                          className="w-full px-3 py-2 pr-9 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                          value={streetAddress}
+                          onChange={e => setStreetAddress(e.target.value)}
+                          placeholder="Ex: Rua das Flores, Bloco B"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                         />
-                        <button
-                          type="button"
-                          onClick={handleSearchCepProfile}
-                          disabled={loadingCepBiz}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-emerald-600 transition-colors p-1"
-                          title="Buscar CEP"
-                        >
-                          {loadingCepBiz ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                          ) : (
-                            <Search className="w-4 h-4" />
-                          )}
-                        </button>
                       </div>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Logradouro / Rua
-                      </label>
-                      <input
-                        type="text"
-                        value={streetAddress}
-                        onChange={e => setStreetAddress(e.target.value)}
-                        placeholder="Ex: Rua das Flores, Bloco B"
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          Número
+                        </label>
+                        <input
+                          type="text"
+                          value={addressNumber}
+                          onChange={e => setAddressNumber(e.target.value)}
+                          placeholder="Ex: 120"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          Bairro *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={neighborhood}
+                          onChange={e => setNeighborhood(e.target.value)}
+                          placeholder="Ex: Centro"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          Cidade *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={city}
+                          onChange={e => setCity(e.target.value)}
+                          placeholder="Ex: Brasília"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 mb-1">
+                          Estado (UF)
+                        </label>
+                        <input
+                          type="text"
+                          value={state}
+                          onChange={e => setState(e.target.value.toUpperCase())}
+                          maxLength={2}
+                          placeholder="DF"
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all uppercase"
+                        />
+                      </div>
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-stone-200/60">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                          Coordenadas: Latitude
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={latitude !== null ? latitude : ""}
+                          onChange={e => setLatitude(e.target.value ? parseFloat(e.target.value) : null)}
+                          placeholder="Ex: -15.7942"
+                          className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                          Coordenadas: Longitude
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={longitude !== null ? longitude : ""}
+                          onChange={e => setLongitude(e.target.value ? parseFloat(e.target.value) : null)}
+                          placeholder="Ex: -47.8822"
+                          className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    {latitude !== null && longitude !== null ? (
+                      <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                        ✓ Coordenadas ativas (${latitude.toFixed(4)}, ${longitude.toFixed(4)}). Clientes em raio de 5 a 10 km encontrarão você com prioridade!
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1.5 bg-amber-50/80 px-2.5 py-1.5 rounded-lg border border-amber-200/60">
+                        ⚠️ Digite o CEP ou clique em "Usar Meu GPS Atual" para habilitar a busca por proximidade em tempo real.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Número
-                      </label>
-                      <input
-                        type="text"
-                        value={addressNumber}
-                        onChange={e => setAddressNumber(e.target.value)}
-                        placeholder="Ex: 120"
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
-                    </div>
+                  {/* Navegação Etapa 2 */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setProfileStep(1)}
+                      className="inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-stone-200 bg-white text-stone-700 font-semibold text-xs sm:text-sm hover:bg-stone-50 transition-all cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Voltar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileStep(3)}
+                      className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs sm:text-sm shadow-xs transition-all cursor-pointer"
+                    >
+                      <span>Continuar para Atendimento & Modalidades</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Bairro *
-                      </label>
+              {/* === ETAPA 3: ATENDIMENTO & MODALIDADES OPERACIONAIS === */}
+              {profileStep === 3 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* WhatsApp com Auto-Preenchimento e Formatação Amigável (Pilar 1) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                      Número do WhatsApp para Receber Pedidos *
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
-                        type="text"
+                        type="tel"
                         required
-                        value={neighborhood}
-                        onChange={e => setNeighborhood(e.target.value)}
-                        placeholder="Ex: Centro"
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                        value={whatsapp}
+                        onChange={e => handleWhatsAppChange(e.target.value)}
+                        placeholder="DDD + Número (ex: 61999999999)"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
                       />
                     </div>
+                    {whatsapp && (
+                      <p className="text-[11px] text-stone-500 mt-1">
+                        Exibição: <strong>{formatDisplayPhone(whatsapp)}</strong>
+                      </p>
+                    )}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Cidade *
+                  {/* Modalidades de Entrega & Pagamento (Pilar 2) */}
+                  <div className="pt-2 border-t border-stone-100 space-y-2">
+                    <label className="block text-xs font-bold text-stone-800">
+                      Tags e Modalidades da Loja (Visíveis na Vitrine)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={freeDelivery}
+                          onChange={e => setFreeDelivery(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Entrega Grátis</span>
                       </label>
-                      <input
-                        type="text"
-                        required
-                        value={city}
-                        onChange={e => setCity(e.target.value)}
-                        placeholder="Ex: Brasília"
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                      />
-                    </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1">
-                        Estado (UF)
+                      <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={storePickup}
+                          onChange={e => setStorePickup(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <ShoppingBag className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                        <span>Retirada no Local</span>
                       </label>
-                      <input
-                        type="text"
-                        value={state}
-                        onChange={e => setState(e.target.value.toUpperCase())}
-                        maxLength={2}
-                        placeholder="DF"
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-stone-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all uppercase"
-                      />
+
+                      <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptsPix}
+                          onChange={e => setAcceptsPix(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <QrCode className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Aceita Pix</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acceptsCard}
+                          onChange={e => setAcceptsCard(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <CreditCard className="w-3.5 h-3.5 text-stone-500 shrink-0" />
+                        <span>Aceita Cartão</span>
+                      </label>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-stone-200/60">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                        Coordenadas: Latitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={latitude !== null ? latitude : ""}
-                        onChange={e => setLatitude(e.target.value ? parseFloat(e.target.value) : null)}
-                        placeholder="Ex: -15.7942"
-                        className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                        Coordenadas: Longitude
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={longitude !== null ? longitude : ""}
-                        onChange={e => setLongitude(e.target.value ? parseFloat(e.target.value) : null)}
-                        placeholder="Ex: -47.8822"
-                        className="w-full px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
+                  {/* Navegação Etapa 3 & Botão Salvar Perfil */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setProfileStep(2)}
+                      className="inline-flex items-center justify-center gap-1.5 py-3 px-4 rounded-xl border border-stone-200 bg-white text-stone-700 font-semibold text-xs sm:text-sm hover:bg-stone-50 transition-all cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Voltar</span>
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isPending ? "Salvando..." : "Salvar Perfil da Vitrine"}</span>
+                    </button>
                   </div>
-
-                  {latitude !== null && longitude !== null ? (
-                    <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1.5 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
-                      ✓ Coordenadas ativas ({latitude.toFixed(4)}, {longitude.toFixed(4)}). Clientes em raio de 5 a 10 km encontrarão você com prioridade!
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1.5 bg-amber-50/80 px-2.5 py-1.5 rounded-lg border border-amber-200/60">
-                      ⚠️ Digite o CEP ou clique em "Usar Meu GPS Atual" para habilitar a busca por proximidade em tempo real.
-                    </p>
-                  )}
                 </div>
-              </div>
-
-              {/* WhatsApp com Auto-Preenchimento e Formatação Amigável (Pilar 1) */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                  Número do WhatsApp para Pedidos *
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="tel"
-                    required
-                    value={whatsapp}
-                    onChange={e => handleWhatsAppChange(e.target.value)}
-                    placeholder="DDD + Número (ex: 61999999999)"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                  />
-                </div>
-                {whatsapp && (
-                  <p className="text-[11px] text-stone-500 mt-1">
-                    Exibição: <strong>{formatDisplayPhone(whatsapp)}</strong>
-                  </p>
-                )}
-              </div>
-
-              {/* Bio */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                  Biografia / Apresentação Rápida
-                </label>
-                <textarea
-                  rows={2}
-                  value={bio}
-                  onChange={e => setBio(e.target.value)}
-                  placeholder="Conte um pouco sobre seus produtos, tempo de preparo e diferenciais..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
-                />
-              </div>
-
-              {/* Modalidades de Entrega & Pagamento (Pilar 2) */}
-              <div className="pt-2 border-t border-stone-100 space-y-2">
-                <label className="block text-xs font-bold text-stone-800">
-                  Tags e Modalidades da Loja (Visíveis na Vitrine)
-                </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={freeDelivery}
-                      onChange={e => setFreeDelivery(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Entrega Grátis</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={storePickup}
-                      onChange={e => setStorePickup(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <ShoppingBag className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                    <span>Retirada no Local</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={acceptsPix}
-                      onChange={e => setAcceptsPix(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <QrCode className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Aceita Pix</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 p-2 rounded-xl border border-stone-200 bg-stone-50/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={acceptsCard}
-                      onChange={e => setAcceptsCard(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <CreditCard className="w-3.5 h-3.5 text-stone-500 shrink-0" />
-                    <span>Aceita Cartão</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Botão Salvar Perfil */}
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm shadow-sm transition-all active:scale-[0.98] cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>{isPending ? "Salvando..." : "Salvar Perfil da Vitrine"}</span>
-              </button>
+              )}
             </form>
 
             {/* Modo Convidar Outro Empreendedor (Pilar 1 - Link Mágico) */}
@@ -2098,6 +2426,41 @@ function DashboardContent() {
             >
               Publicar na Vitrine em 1 Toque
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Prévia da Vitrine ao Vivo no Celular */}
+      {showLivePreview && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative max-w-md w-full animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowLivePreview(false)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white flex items-center gap-1 text-xs font-semibold p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+              <span>Fechar</span>
+            </button>
+            <div className="text-center pb-2">
+              <span className="text-xs font-bold text-white/90 bg-stone-800/80 px-3 py-1 rounded-full border border-white/20">
+                Visualização ao Vivo da Vitrine
+              </span>
+            </div>
+            <LiveStorePreview
+              name={name}
+              categoryName={categories.find(c => c.id === categoryId)?.name}
+              avatarUrl={avatarUrl}
+              bio={bio}
+              neighborhood={neighborhood}
+              city={city}
+              whatsapp={whatsapp}
+              isOpen={isOpen}
+              freeDelivery={freeDelivery}
+              storePickup={storePickup}
+              acceptsPix={acceptsPix}
+              acceptsCard={acceptsCard}
+              products={products}
+            />
           </div>
         </div>
       )}

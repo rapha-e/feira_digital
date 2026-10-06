@@ -22,6 +22,7 @@ create table if not exists public.businesses (
     category_id uuid references public.categories(id) on delete set null,
     neighborhood text not null,
     city text not null,
+    cnpj text,
     -- Endereço Estruturado e Geolocalização (PRD Regionalização MEI)
     cep text,
     street_address text,
@@ -230,6 +231,7 @@ on conflict (slug) do nothing;
 -- ============================================================
 -- MIGRAÇÃO DE GEOLOCALIZAÇÃO E ÍNDICES (PRD Regionalização MEI)
 -- ============================================================
+alter table public.businesses add column if not exists cnpj text;
 alter table public.businesses add column if not exists cep text;
 alter table public.businesses add column if not exists street_address text;
 alter table public.businesses add column if not exists address_number text;
