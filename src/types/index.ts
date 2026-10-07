@@ -22,6 +22,7 @@ export interface Business {
   longitude?: number | null;
   distance_km?: number | null;
   whatsapp: string;
+  instagram?: string | null;
   avatar_url: string | null;
   bio: string | null;
   is_open?: boolean;

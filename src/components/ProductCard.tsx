@@ -78,7 +78,7 @@ export function ProductCard({
   };
 
   return (
-    <div className="flex flex-col bg-white rounded-2xl border border-stone-200/70 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-emerald-300/60 group">
+    <div className="flex flex-col bg-white rounded-3xl border border-stone-200/80 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-emerald-300/80 hover:-translate-y-0.5 group">
       {/* Product Image (Proporção 1:1 rigorosa com object-cover - PRD 3.2) */}
       <div className="relative aspect-square w-full bg-stone-100 overflow-hidden">
         {product.image_url ? (
@@ -87,7 +87,7 @@ export function ProductCard({
             alt={product.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-stone-300 gap-1 bg-stone-50">
@@ -96,51 +96,51 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Botão de Compartilhar Rápido sobre a Imagem */}
+        {/* Botão de Compartilhar Rápido sobre a Imagem com Glassmorphism */}
         <button
           type="button"
           onClick={handleShareClick}
           title="Compartilhar este produto"
-          className="absolute top-2 right-2 p-1.5 rounded-full bg-white/90 text-stone-700 hover:text-emerald-700 hover:bg-white shadow-sm backdrop-blur-xs transition-all active:scale-90 cursor-pointer"
+          className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 text-stone-700 hover:text-emerald-700 hover:bg-white shadow-sm backdrop-blur-md transition-all active:scale-90 cursor-pointer"
         >
           <Share2 className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Estrutura Interna de Informação - PRD 3.2 */}
-      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
         <div className="space-y-1">
-          {/* Título truncado em 2 linhas para preservação do alinhamento do grid */}
+          {/* Título truncado em 2 linhas com tipografia balanceada */}
           <h3
-            className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug min-h-[2rem] sm:min-h-[2.5rem] group-hover:text-emerald-700 transition-colors"
+            className="text-xs sm:text-sm font-bold text-stone-900 line-clamp-2 leading-snug min-h-[2rem] sm:min-h-[2.5rem] group-hover:text-emerald-800 transition-colors"
             title={product.title}
           >
             {product.title}
           </h3>
 
-          {/* Descrição Curta (1 linha focada no diferencial) */}
+          {/* Descrição Curta */}
           {product.description && (
             <p className="text-[11px] sm:text-xs text-stone-500 line-clamp-1 leading-relaxed">
               {product.description}
             </p>
           )}
 
-          {/* Preço em Evidência (Maior peso tipográfico - PRD 3.2) */}
-          <div className="pt-0.5">
-            <span className="text-sm sm:text-base font-extrabold text-emerald-700 tracking-tight">
+          {/* Preço em Evidência com Tipografia Nobre */}
+          <div className="pt-1">
+            <span className="text-base sm:text-lg font-black text-stone-950 tracking-tight block">
               {formattedPrice}
             </span>
           </div>
         </div>
 
-        {/* Botão de Conversão Full Width com Feedback Tátil - PRD 3.3 */}
+        {/* Botão de Conversão WhatsApp com Design de Boutique */}
         <div className="mt-auto pt-1">
           <a
             href={whatsappOrderUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleOrderClick}
-            className="w-full inline-flex items-center justify-center gap-1.5 py-2 sm:py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs shadow-emerald-600/20 transition-all duration-150 cursor-pointer text-center"
+            className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#1ebe5d] hover:from-[#20bd5a] hover:to-[#17a34f] active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-green-600/20 hover:shadow-lg hover:shadow-green-600/30 transition-all duration-200 cursor-pointer text-center"
           >
             <MessageCircle className="w-4 h-4 fill-current shrink-0" />
             <span>Pedir no WhatsApp</span>
