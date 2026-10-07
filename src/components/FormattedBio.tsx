@@ -35,7 +35,7 @@ export function FormattedBio({ bio, className = "" }: FormattedBioProps) {
             href={`https://instagram.com/${handle}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100 px-1.5 py-0.5 rounded-md transition-colors underline decoration-pink-300 underline-offset-2 mx-0.5"
+            className="text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors mx-0.5 font-medium"
             title={`Abrir perfil de @${handle} no Instagram`}
           >
             {part}
@@ -65,11 +65,11 @@ export function FormattedBio({ bio, className = "" }: FormattedBioProps) {
             href={cleanHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100/80 px-2 py-0.5 rounded-md transition-all underline decoration-emerald-400 underline-offset-3 shadow-2xs hover:shadow-xs group mx-0.5"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors mx-0.5 break-all font-medium"
             title={`Visitar ${displayLabel}`}
           >
             <span>{displayLabel}</span>
-            <ExternalLink className="w-3 h-3 text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
+            <ExternalLink className="w-2.5 h-2.5 text-blue-500 shrink-0" />
           </a>
         );
       }
