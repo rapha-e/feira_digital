@@ -16,6 +16,8 @@ import {
   ShoppingBag,
   QrCode,
   CreditCard,
+  Sparkles,
+  BadgeCheck,
 } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -105,6 +107,22 @@ export default async function BusinessProfilePage({
               {/* Profile Info */}
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Selo Dourado de Destaque Patrocinado */}
+                  {business.is_featured && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-amber-950 shadow-2xs border border-amber-400">
+                      <Sparkles className="w-3 h-3 fill-amber-950 text-amber-950" />
+                      <span>DESTAQUE PATROCINADO</span>
+                    </span>
+                  )}
+
+                  {/* Selo MEI Verificado */}
+                  {business.is_verified && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <BadgeCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>MEI Verificado</span>
+                    </span>
+                  )}
+
                   {business.category && (
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
                       {business.category.name}

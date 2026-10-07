@@ -244,3 +244,39 @@ create index if not exists idx_businesses_coords on public.businesses (latitude,
 create index if not exists idx_businesses_neighborhood on public.businesses (lower(neighborhood));
 create index if not exists idx_businesses_city on public.businesses (lower(city));
 
+-- ============================================================
+-- MONETIZAÇÃO, DESTAQUE PATROCINADO & PLANOS MEI
+-- ============================================================
+alter table public.businesses add column if not exists is_featured boolean default false;
+alter table public.businesses add column if not exists featured_until timestamp with time zone;
+alter table public.businesses add column if not exists plan_tier text default 'free';
+alter table public.businesses add column if not exists is_verified boolean default false;
+
+create index if not exists idx_businesses_featured on public.businesses (is_featured, featured_until desc);
+
+-- Tabela de impulsionamentos e assinaturas de publicidade
+create table if not exists public.promotions (
+    id uuid primary key default gen_random_uuid(),
+    business_id uuid not null references public.businesses(id) on delete cascade,
+    type text not null, -- 'boost_3_days', 'boost_7_days', 'pro_monthly'
+    amount numeric(10,2) not null,
+    status text not null default 'pending', -- 'pending', 'active', 'expired'
+    starts_at timestamp with time zone default now(),
+    expires_at timestamp with time zone not null,
+    payment_method text default 'pix',
+    created_at timestamp with time zone default now()
+);
+
+alter table public.promotions enable row level security;
+
+create policy "Visualização pública de promoções"
+on public.promotions for select
+to anon, authenticated
+using (true);
+
+create policy "Usuários podem criar pedidos de promoção"
+on public.promotions for insert
+to authenticated
+with check (true);
+
+

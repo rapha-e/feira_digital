@@ -32,8 +32,24 @@ export interface Business {
   views_count?: number;
   whatsapp_clicks_count?: number;
   product_limit?: number;
+  is_featured?: boolean;
+  featured_until?: string | null;
+  plan_tier?: "free" | "pro" | "diamond" | string;
+  is_verified?: boolean;
   created_at?: string;
   category?: Category;
+}
+
+export interface Promotion {
+  id: string;
+  business_id: string;
+  type: "boost_3_days" | "boost_7_days" | "pro_monthly" | string;
+  amount: number;
+  status: "pending" | "active" | "expired";
+  starts_at?: string;
+  expires_at: string;
+  payment_method?: string;
+  created_at?: string;
 }
 
 export interface Product {

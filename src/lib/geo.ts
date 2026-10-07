@@ -205,7 +205,14 @@ export function sortBusinessesByProximity(
   businesses: BusinessWithProducts[],
   userLocation?: UserLocation | null
 ): BusinessWithProducts[] {
-  if (!userLocation) return businesses;
+  if (!userLocation) {
+    // Sem localização, prioriza os empreendedores destacados patrocinados
+    return [...businesses].sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      return bFeatured - aFeatured;
+    });
+  }
 
   const userLat = userLocation.lat;
   const userLng = userLocation.lng;
@@ -229,13 +236,26 @@ export function sortBusinessesByProximity(
       return { ...b, distance_km: 999.0 };
     });
 
-    // Ordena do menor raio de distância para o maior
-    return withDistance.sort((a, b) => (a.distance_km ?? 999) - (b.distance_km ?? 999));
+    // Ordenação Híbrida: Destaques Patrocinados Primeiro -> Distância mais próxima -> Restante
+    return withDistance.sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured;
+      }
+      return (a.distance_km ?? 999) - (b.distance_km ?? 999);
+    });
   }
 
   // Caso 2: Usuário informou apenas Bairro/Cidade manualmente
   if (userNeighborhood || userCity) {
     return [...businesses].sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured;
+      }
+
       const aNeighborhoodMatch =
         userNeighborhood && a.neighborhood.toLowerCase().trim() === userNeighborhood ? 1 : 0;
       const bNeighborhoodMatch =
@@ -252,5 +272,9 @@ export function sortBusinessesByProximity(
     });
   }
 
-  return businesses;
+  return [...businesses].sort((a, b) => {
+    const aFeatured = a.is_featured ? 1 : 0;
+    const bFeatured = b.is_featured ? 1 : 0;
+    return bFeatured - aFeatured;
+  });
 }

@@ -10,6 +10,8 @@ import {
   CreditCard,
   QrCode,
   Navigation,
+  Sparkles,
+  BadgeCheck,
 } from "lucide-react";
 import { BusinessWithProducts } from "@/types";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
@@ -23,9 +25,16 @@ interface BusinessCardProps {
 export function BusinessCard({ business }: BusinessCardProps) {
   const whatsappUrl = buildWhatsAppLink(business.whatsapp, business.name);
   const isOpen = business.is_open !== false;
+  const isFeatured = Boolean(business.is_featured);
 
   return (
-    <div className="group flex flex-col bg-white rounded-2xl border border-stone-200/70 shadow-xs hover:shadow-xl hover:border-emerald-200/80 transition-all duration-300 overflow-hidden relative">
+    <div
+      className={`group flex flex-col bg-white rounded-2xl shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden relative ${
+        isFeatured
+          ? "border-2 border-amber-300/90 ring-1 ring-amber-300/40 hover:border-amber-400"
+          : "border border-stone-200/70 hover:border-emerald-200/80"
+      }`}
+    >
       {/* Top Banner / Avatar Area */}
       <div className="p-4 flex items-start gap-3.5">
         <div className="relative w-16 h-16 sm:w-18 sm:h-18 shrink-0 aspect-square rounded-2xl overflow-hidden bg-stone-100 border border-stone-200 shadow-xs">
@@ -46,6 +55,22 @@ export function BusinessCard({ business }: BusinessCardProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+            {/* Selo Dourado de Destaque Patrocinado */}
+            {isFeatured && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-amber-950 shadow-2xs border border-amber-400/80 animate-pulse">
+                <Sparkles className="w-2.5 h-2.5 fill-amber-950 text-amber-950 shrink-0" />
+                <span>DESTAQUE</span>
+              </span>
+            )}
+
+            {/* Selo MEI Verificado */}
+            {business.is_verified && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <BadgeCheck className="w-3 h-3 text-blue-600 shrink-0" />
+                <span>Verificado</span>
+              </span>
+            )}
+
             {/* Categoria */}
             {business.category && (
               <span className="inline-block px-2 py-0.5 text-[10px] font-semibold rounded-full bg-stone-100 text-stone-700 border border-stone-200/80">

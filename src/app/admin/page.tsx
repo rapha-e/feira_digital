@@ -92,6 +92,9 @@ export default function AdminPage() {
   const [editBizLongitude, setEditBizLongitude] = useState<number | null>(null);
   const [editBizBio, setEditBizBio] = useState("");
   const [editBizLimit, setEditBizLimit] = useState(5);
+  const [editBizIsFeatured, setEditBizIsFeatured] = useState(false);
+  const [editBizIsVerified, setEditBizIsVerified] = useState(false);
+  const [editBizPlanTier, setEditBizPlanTier] = useState("free");
   const [editBizIsOpen, setEditBizIsOpen] = useState(true);
   const [editBizFreeDelivery, setEditBizFreeDelivery] = useState(false);
   const [editBizStorePickup, setEditBizStorePickup] = useState(true);
@@ -222,6 +225,9 @@ export default function AdminPage() {
     setEditBizStorePickup(biz.store_pickup ?? true);
     setEditBizAcceptsPix(biz.accepts_pix ?? true);
     setEditBizAcceptsCard(biz.accepts_card || false);
+    setEditBizIsFeatured(Boolean(biz.is_featured));
+    setEditBizIsVerified(Boolean(biz.is_verified));
+    setEditBizPlanTier(biz.plan_tier || "free");
   };
 
   const handleSaveBusiness = async (e: React.FormEvent) => {
@@ -247,6 +253,9 @@ export default function AdminPage() {
         store_pickup: editBizStorePickup,
         accepts_pix: editBizAcceptsPix,
         accepts_card: editBizAcceptsCard,
+        is_featured: editBizIsFeatured,
+        is_verified: editBizIsVerified,
+        plan_tier: editBizPlanTier,
       };
 
       const ok = await adminUpdateBusiness(editingBiz.id, updates);
@@ -957,9 +966,21 @@ export default function AdminPage() {
                               )}
                             </div>
                             <div>
-                              <span className="font-bold text-stone-900 block truncate max-w-[150px]">
-                                {biz.name}
-                              </span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="font-bold text-stone-900 truncate max-w-[140px]">
+                                  {biz.name}
+                                </span>
+                                {biz.is_featured && (
+                                  <span className="text-[9px] font-black uppercase text-amber-950 bg-amber-300 px-1.5 py-0.5 rounded shadow-2xs">
+                                    ⭐ Topo
+                                  </span>
+                                )}
+                                {biz.is_verified && (
+                                  <span className="text-[9px] font-black uppercase text-blue-800 bg-blue-100 px-1 py-0.5 rounded">
+                                    ✓
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[10px] text-stone-400 font-mono">
                                 /{biz.slug}
                               </span>
@@ -1748,6 +1769,48 @@ export default function AdminPage() {
                     placeholder="Descrição curta do negócio..."
                     className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
+                </div>
+
+                {/* Destaque Patrocinado & Monetização (Admin Control) */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-300 space-y-3">
+                  <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 fill-amber-500 text-amber-600" />
+                    Monetização & Status de Destaque Patrocinado
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className="flex items-center gap-2 text-xs font-bold text-stone-900 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBizIsFeatured}
+                        onChange={e => setEditBizIsFeatured(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+                      />
+                      <span>⭐ Destaque no Topo</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-bold text-stone-900 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBizIsVerified}
+                        onChange={e => setEditBizIsVerified(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span>✓ MEI Verificado</span>
+                    </label>
+
+                    <div>
+                      <select
+                        value={editBizPlanTier}
+                        onChange={e => setEditBizPlanTier(e.target.value)}
+                        className="w-full py-1.5 px-2.5 rounded-xl border border-stone-200 bg-white text-xs font-bold"
+                      >
+                        <option value="free">Plano Grátis</option>
+                        <option value="pro">Plano Pro</option>
+                        <option value="diamond">Plano Diamante</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Parâmetros Operacionais */}

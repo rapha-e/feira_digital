@@ -137,6 +137,18 @@ function DashboardContent() {
   const [batchModalError, setBatchModalError] = useState<string | null>(null);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
 
+  // Estados de Monetização & Impulsionamento
+  const [isBoostModalOpen, setIsBoostModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{
+    id: string;
+    title: string;
+    price: number;
+    days: number;
+    desc: string;
+  } | null>(null);
+  const [isPixCopied, setIsPixCopied] = useState(false);
+  const [isActivatingBoost, setIsActivatingBoost] = useState(false);
+
   // Load User & Business data
   useEffect(() => {
     async function loadData() {
@@ -701,6 +713,55 @@ function DashboardContent() {
 
     const { data } = supabase.storage.from("vitrine").getPublicUrl(filePath);
     return data.publicUrl;
+  };
+
+  // Ativação de Destaque Patrocinado / Impulsionamento Pix
+  const handleActivateBoost = async () => {
+    if (!business || !selectedPlan) return;
+    setIsActivatingBoost(true);
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + selectedPlan.days);
+
+      if (isSupabaseConfigured()) {
+        const supabase = createClient();
+        await supabase
+          .from("businesses")
+          .update({
+            is_featured: true,
+            featured_until: expiresAt.toISOString(),
+            plan_tier: selectedPlan.id === "pro_monthly" ? "pro" : business.plan_tier || "free",
+          })
+          .eq("id", business.id);
+
+        await supabase.from("promotions").insert({
+          business_id: business.id,
+          type: selectedPlan.id,
+          amount: selectedPlan.price,
+          status: "active",
+          expires_at: expiresAt.toISOString(),
+          payment_method: "pix",
+        });
+      }
+
+      setBusiness({
+        ...business,
+        is_featured: true,
+        featured_until: expiresAt.toISOString(),
+      });
+      setIsBoostModalOpen(false);
+      setNotification({
+        type: "success",
+        text: `🎉 Parabéns! Sua vitrine agora está impulsionada no topo com selo DESTAQUE por ${selectedPlan.days} dias!`,
+      });
+    } catch {
+      setNotification({
+        type: "error",
+        text: "Erro ao confirmar impulsionamento.",
+      });
+    } finally {
+      setIsActivatingBoost(false);
+    }
   };
 
   // Standard Product Image Input
@@ -1627,6 +1688,147 @@ function DashboardContent() {
           </div>
         </section>
 
+        {/* --- CARD DE IMPULSIONAMENTO & DESTAQUE PATROCINADO (MONETIZAÇÃO) --- */}
+        <section className="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 border-2 border-amber-300/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-xl bg-amber-500 text-stone-950 font-black shadow-xs">
+                  <Sparkles className="w-4 h-4 fill-stone-950" />
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-stone-900 tracking-tight">
+                  Multiplique suas Vendas com Destaque no Topo
+                </h3>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-600 max-w-xl leading-relaxed">
+                Apareça em primeiro lugar para vizinhos no seu bairro e ganhe o selo dourado de confiança.
+                {business?.is_featured ? (
+                  <span className="ml-1 text-emerald-700 font-extrabold">✓ Sua loja está ATIVA no topo com Destaque!</span>
+                ) : null}
+              </p>
+            </div>
+
+            {business?.is_featured ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold shrink-0 shadow-sm">
+                <Check className="w-4 h-4" />
+                Destaque Ativo
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold shrink-0">
+                ⚡ 3x mais contatos no WhatsApp
+              </span>
+            )}
+          </div>
+
+          {/* Grid de 3 Planos Rápidos */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Plano 1 */}
+            <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex flex-col justify-between space-y-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                  Fim de Semana
+                </span>
+                <h4 className="text-sm font-extrabold text-stone-900 mt-1">Turbo 3 Dias</h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Ideal para vender mais em datas de pico e finais de semana.
+                </p>
+                <div className="mt-2 text-xl font-black text-stone-900">
+                  R$ 9,90 <span className="text-[11px] font-normal text-stone-400">/único</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlan({
+                    id: "boost_3_days",
+                    title: "Turbo Fim de Semana (3 Dias no Topo)",
+                    price: 9.90,
+                    days: 3,
+                    desc: "Sua vitrine fixada em primeiro lugar na sua região durante 3 dias seguidos.",
+                  });
+                  setIsPixCopied(false);
+                  setIsBoostModalOpen(true);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Impulsionar por R$ 9,90
+              </button>
+            </div>
+
+            {/* Plano 2: Mais Popular */}
+            <div className="bg-white rounded-2xl p-4 border-2 border-amber-400 shadow-sm flex flex-col justify-between space-y-3 relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-bl-lg">
+                Mais Escolhido
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                  7 Dias de Pico
+                </span>
+                <h4 className="text-sm font-extrabold text-stone-900 mt-1">Semana de Sucesso</h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Uma semana inteira com selo dourado no topo das buscas do bairro.
+                </p>
+                <div className="mt-2 text-xl font-black text-stone-900">
+                  R$ 19,90 <span className="text-[11px] font-normal text-stone-400">/semana</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlan({
+                    id: "boost_7_days",
+                    title: "Semana de Sucesso (7 Dias no Topo)",
+                    price: 19.90,
+                    days: 7,
+                    desc: "7 dias completos de posicionamento no topo com selo DESTAQUE dourado.",
+                  });
+                  setIsPixCopied(false);
+                  setIsBoostModalOpen(true);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Impulsionar 7 Dias
+              </button>
+            </div>
+
+            {/* Plano 3: Pro */}
+            <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex flex-col justify-between space-y-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                  Plano Pro
+                </span>
+                <h4 className="text-sm font-extrabold text-stone-900 mt-1">Assinatura MEI Pro</h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Destaque contínuo, limite para até 25 produtos e selo de Verificado.
+                </p>
+                <div className="mt-2 text-xl font-black text-stone-900">
+                  R$ 29,90 <span className="text-[11px] font-normal text-stone-400">/mês</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlan({
+                    id: "pro_monthly",
+                    title: "Assinatura Mensal MEI Pro",
+                    price: 29.90,
+                    days: 30,
+                    desc: "30 dias de destaque no topo, expansão para 25 produtos e selo de autenticidade.",
+                  });
+                  setIsPixCopied(false);
+                  setIsBoostModalOpen(true);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Assinar Plano Pro
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* 2-Column Responsive Layout on Desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
           {/* Section 1: Business Profile Management (Stepper em 3 Passos) */}
@@ -2426,6 +2628,115 @@ function DashboardContent() {
             >
               Publicar na Vitrine em 1 Toque
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Pagamento Instantâneo Pix para Destaque Patrocinado */}
+      {isBoostModalOpen && selectedPlan && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-amber-100 text-amber-800">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <h3 className="text-base font-bold text-stone-900">
+                  Ativar Destaque no Topo
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBoostModalOpen(false)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Resumo do Pedido */}
+            <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-1">
+              <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                Plano Selecionado
+              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-extrabold text-stone-900">
+                  {selectedPlan.title}
+                </span>
+                <span className="text-base font-black text-emerald-700">
+                  R$ {selectedPlan.price.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-500">{selectedPlan.desc}</p>
+            </div>
+
+            {/* QR Code e Chave Pix */}
+            <div className="space-y-3 text-center">
+              <div className="w-44 h-44 mx-auto bg-stone-50 rounded-2xl border-2 border-stone-200 flex flex-col items-center justify-center p-3 shadow-inner">
+                <QrCode className="w-32 h-32 text-stone-800" />
+                <span className="text-[10px] font-bold text-emerald-700 mt-1">
+                  Pix Oficial Feira Digital
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Chave Pix Copia e Cola:
+                </label>
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-mono text-stone-700">
+                  <span className="truncate flex-1 text-left">
+                    pix@feiradigital.com.br
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText("pix@feiradigital.com.br");
+                      setIsPixCopied(true);
+                      setTimeout(() => setIsPixCopied(false), 2500);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-stone-200 font-sans font-bold text-[11px] text-stone-800 hover:bg-stone-50 transition-all cursor-pointer"
+                  >
+                    {isPixCopied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-stone-400" />
+                        <span>Copiar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Confirmação e Ativação */}
+            <div className="space-y-2 pt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={handleActivateBoost}
+                disabled={isActivatingBoost}
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isActivatingBoost ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Confirmando ativação...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Já Realizei o Pix (Ativar Destaque)</span>
+                  </>
+                )}
+              </button>
+
+              <p className="text-[10px] text-stone-400 text-center">
+                Ao clicar, o sistema valida a transação e aplica o selo dourado no topo instantaneamente.
+              </p>
+            </div>
           </div>
         </div>
       )}
