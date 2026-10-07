@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { Business, BusinessWithProducts, Category, Product } from "@/types";
 import {
@@ -162,18 +163,86 @@ export async function getAllBusinessesAdmin(): Promise<BusinessWithProducts[]> {
   }
 }
 
-export async function updateBusinessAdmin(id: string, updates: Partial<Business>): Promise<boolean> {
+export type UpdateBusinessResult = {
+  success: boolean;
+  error?: string;
+  warning?: string;
+};
+
+export async function updateBusinessAdmin(
+  id: string,
+  updates: Partial<Business>
+): Promise<UpdateBusinessResult> {
   try {
     if (!isSupabaseConfigured()) {
       updateMockBusiness(id, updates);
-      return true;
+      return { success: true };
     }
-    const supabase = await createClient();
-    const { error } = await supabase.from("businesses").update(updates).eq("id", id);
-    return !error;
-  } catch {
+    const supabase = getAdminSupabaseClient();
+
+    // 1. Tenta atualizar com todos os dados
+    const { data, error } = await supabase
+      .from("businesses")
+      .update(updates)
+      .eq("id", id)
+      .select();
+
+    if (!error && data && data.length > 0) {
+      return { success: true };
+    }
+
+    // 2. Se falhar por coluna inexistente no schema do Supabase (PGRST204)
+    if (error && error.code === "PGRST204") {
+      console.warn("Supabase schema cache sem colunas novas. Aplicando fallback de campos principais...", error.message);
+      const fallbackUpdates: Record<string, unknown> = { ...updates };
+      delete fallbackUpdates.is_featured;
+      delete fallbackUpdates.featured_until;
+      delete fallbackUpdates.plan_tier;
+      delete fallbackUpdates.is_verified;
+      delete fallbackUpdates.cep;
+      delete fallbackUpdates.latitude;
+      delete fallbackUpdates.longitude;
+      delete fallbackUpdates.street_address;
+      delete fallbackUpdates.address_number;
+      delete fallbackUpdates.state;
+      delete fallbackUpdates.cnpj;
+
+      const fallbackRes = await supabase
+        .from("businesses")
+        .update(fallbackUpdates)
+        .eq("id", id)
+        .select();
+
+      if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
+        return {
+          success: true,
+          warning:
+            "Nome da Loja, Slug e configurações foram atualizados com sucesso! (Aviso: para ativar o Destaque e Selos de forma persistente, execute o script SQL de migração no painel do Supabase).",
+        };
+      }
+      return {
+        success: false,
+        error: fallbackRes.error?.message || error.message,
+      };
+    }
+
+    // 3. Se não houver erro explícito mas nenhuma linha foi atualizada (bloqueio por RLS)
+    if (!error && (!data || data.length === 0)) {
+      return {
+        success: false,
+        error:
+          "A atualização não foi gravada no Supabase (0 linhas afetadas). Execute o script de migração no SQL Editor do Supabase para autorizar atualizações do painel administrativo.",
+      };
+    }
+
+    return {
+      success: false,
+      error: error?.message || "Erro desconhecido ao salvar no Supabase.",
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao conectar ao Supabase";
     updateMockBusiness(id, updates);
-    return true;
+    return { success: true, warning: msg };
   }
 }
 
@@ -183,7 +252,7 @@ export async function deleteBusinessAdmin(id: string): Promise<boolean> {
       deleteMockBusiness(id);
       return true;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("businesses").delete().eq("id", id);
     return !error;
   } catch {
@@ -204,7 +273,7 @@ export async function createCategoryAdmin(category: { name: string; slug: string
       addMockCategory(newCat);
       return newCat;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { data, error } = await supabase
       .from("categories")
       .insert(category)
@@ -224,7 +293,7 @@ export async function updateCategoryAdmin(id: string, updates: Partial<Category>
       updateMockCategory(id, updates);
       return true;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("categories").update(updates).eq("id", id);
     return !error;
   } catch {
@@ -239,7 +308,7 @@ export async function deleteCategoryAdmin(id: string): Promise<boolean> {
       deleteMockCategory(id);
       return true;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("categories").delete().eq("id", id);
     return !error;
   } catch {
@@ -254,7 +323,7 @@ export async function updateProductAdmin(id: string, updates: Partial<Product>):
       updateMockProduct(id, updates);
       return true;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("products").update(updates).eq("id", id);
     return !error;
   } catch {
@@ -269,7 +338,7 @@ export async function deleteProductAdmin(id: string): Promise<boolean> {
       deleteMockProduct(id);
       return true;
     }
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("products").delete().eq("id", id);
     return !error;
   } catch {

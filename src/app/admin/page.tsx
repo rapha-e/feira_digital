@@ -62,7 +62,7 @@ export default function AdminPage() {
   const [businesses, setBusinesses] = useState<BusinessWithProducts[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [notification, setNotification] = useState<{
-    type: "success" | "error";
+    type: "success" | "error" | "warning";
     text: string;
   } | null>(null);
 
@@ -164,28 +164,38 @@ export default function AdminPage() {
   // Alterar Status Operacional de um MEI pelo Admin
   const handleToggleBusinessStatus = async (biz: BusinessWithProducts) => {
     const newStatus = !biz.is_open;
-    const ok = await adminUpdateBusiness(biz.id, { is_open: newStatus });
-    if (ok) {
+    const res = await adminUpdateBusiness(biz.id, { is_open: newStatus });
+    if (res.success) {
       setBusinesses(prev =>
         prev.map(b => (b.id === biz.id ? { ...b, is_open: newStatus } : b))
       );
       setNotification({
-        type: "success",
-        text: `Loja "${biz.name}" agora está ${newStatus ? "ABERTA" : "FECHADA"}.`,
+        type: res.warning ? "warning" : "success",
+        text: res.warning || `Loja "${biz.name}" agora está ${newStatus ? "ABERTA" : "FECHADA"}.`,
+      });
+    } else {
+      setNotification({
+        type: "error",
+        text: res.error || "Erro ao alterar status operacional.",
       });
     }
   };
 
   // Ajustar Teto de Produtos de um MEI
   const handleChangeProductLimit = async (biz: BusinessWithProducts, newLimit: number) => {
-    const ok = await adminUpdateBusiness(biz.id, { product_limit: newLimit });
-    if (ok) {
+    const res = await adminUpdateBusiness(biz.id, { product_limit: newLimit });
+    if (res.success) {
       setBusinesses(prev =>
         prev.map(b => (b.id === biz.id ? { ...b, product_limit: newLimit } : b))
       );
       setNotification({
-        type: "success",
-        text: `Teto de produtos de "${biz.name}" alterado para ${newLimit} itens.`,
+        type: res.warning ? "warning" : "success",
+        text: res.warning || `Teto de produtos de "${biz.name}" alterado para ${newLimit} itens.`,
+      });
+    } else {
+      setNotification({
+        type: "error",
+        text: res.error || "Erro ao alterar teto de produtos.",
       });
     }
   };
@@ -258,8 +268,8 @@ export default function AdminPage() {
         plan_tier: editBizPlanTier,
       };
 
-      const ok = await adminUpdateBusiness(editingBiz.id, updates);
-      if (ok) {
+      const res = await adminUpdateBusiness(editingBiz.id, updates);
+      if (res.success) {
         const matchingCategory = categories.find(c => c.id === editBizCategoryId);
         setBusinesses(prev =>
           prev.map(b =>
@@ -273,14 +283,14 @@ export default function AdminPage() {
           )
         );
         setNotification({
-          type: "success",
-          text: `Dados do negócio "${editBizName}" atualizados com sucesso!`,
+          type: res.warning ? "warning" : "success",
+          text: res.warning || `Dados do negócio "${editBizName}" atualizados com sucesso!`,
         });
         setEditingBiz(null);
       } else {
         setNotification({
           type: "error",
-          text: "Erro ao atualizar os dados do negócio.",
+          text: res.error || "Erro ao atualizar os dados do negócio.",
         });
       }
     } catch {
@@ -738,20 +748,24 @@ export default function AdminPage() {
             className={`p-3.5 rounded-2xl text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs ${
               notification.type === "success"
                 ? "bg-emerald-50 text-emerald-900 border border-emerald-200"
+                : notification.type === "warning"
+                ? "bg-amber-50 text-amber-950 border border-amber-300"
                 : "bg-red-50 text-red-900 border border-red-200"
             }`}
           >
             <div className="flex items-center gap-2">
               {notification.type === "success" ? (
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : notification.type === "warning" ? (
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
               )}
-              <span>{notification.text}</span>
+              <span className="font-medium">{notification.text}</span>
             </div>
             <button
               onClick={() => setNotification(null)}
-              className="text-stone-400 hover:text-stone-700 cursor-pointer"
+              className="text-stone-400 hover:text-stone-700 cursor-pointer text-sm font-bold ml-2"
             >
               ✕
             </button>
@@ -1561,6 +1575,76 @@ export default function AdminPage() {
               <p className="text-xs text-stone-500">
                 Informações de execução, banco de dados e ambiente.
               </p>
+            </div>
+
+            {/* Card de Migração SQL */}
+            <div className="p-6 rounded-3xl border border-amber-200 bg-amber-50/70 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>Migração de Banco de Dados: Destaque, Monetização & RLS</span>
+                  </h3>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Execute este comando no SQL Editor do Supabase para habilitar salvamento de destaques e edição administrativa.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const sql = `-- 1. Colunas de monetização e geolocalização
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS is_featured boolean DEFAULT false;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS featured_until timestamp with time zone;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS plan_tier text DEFAULT 'free';
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS cnpj text;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS cep text;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS street_address text;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS address_number text;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS state text DEFAULT 'DF';
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS latitude double precision;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS longitude double precision;
+
+-- 2. Permissão de atualização pelo painel administrativo
+DROP POLICY IF EXISTS "Permitir update em businesses" ON public.businesses;
+CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir delete em businesses" ON public.businesses;
+CREATE POLICY "Permitir delete em businesses" ON public.businesses FOR DELETE USING (true);`;
+                      navigator.clipboard.writeText(sql);
+                      setNotification({
+                        type: "success",
+                        text: "Script SQL copiado com sucesso! Cole no SQL Editor do Supabase.",
+                      });
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar Script SQL</span>
+                  </button>
+                  <a
+                    href="https://supabase.com/dashboard/project/zmuorzgrpwaaebskqwxb/sql"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-xl bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs transition-colors flex items-center gap-1 shrink-0"
+                  >
+                    <span>Abrir Supabase SQL</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+              <pre className="text-[11px] font-mono bg-stone-900 text-amber-200 p-4 rounded-2xl overflow-x-auto border border-stone-800">
+{`ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS is_featured boolean DEFAULT false;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS featured_until timestamp with time zone;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS plan_tier text DEFAULT 'free';
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS cep text;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS latitude double precision;
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS longitude double precision;
+
+DROP POLICY IF EXISTS "Permitir update em businesses" ON public.businesses;
+CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE USING (true) WITH CHECK (true);`}
+              </pre>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
