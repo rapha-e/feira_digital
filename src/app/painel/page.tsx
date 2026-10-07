@@ -1473,11 +1473,11 @@ function DashboardContent() {
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-              title="Sair da conta"
+              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="Sair da conta de empreendedor"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sair</span>
+              <LogOut className="w-3.5 h-3.5 text-red-600" />
+              <span>Sair</span>
             </button>
           </div>
         </div>
@@ -2523,6 +2523,27 @@ function DashboardContent() {
               </div>
             )}
           </section>
+        </div>
+
+        {/* Card de Segurança & Encerramento de Sessão */}
+        <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <h3 className="text-xs sm:text-sm font-bold text-stone-900 flex items-center gap-2">
+              <LogOut className="w-4 h-4 text-red-600 shrink-0" />
+              <span>Sessão do Empreendedor</span>
+            </h3>
+            <p className="text-[11px] sm:text-xs text-stone-500">
+              Deseja sair do painel neste dispositivo? Suas alterações salvas permanecem ativas na vitrine.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="py-2 px-4 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0 active:scale-95"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sair da Minha Conta</span>
+          </button>
         </div>
       </main>
 

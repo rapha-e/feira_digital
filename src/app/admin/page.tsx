@@ -651,9 +651,10 @@ export default function AdminPage() {
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-950/60 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Encerrar sessão de administrador"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5 text-red-400" />
               <span>Sair</span>
             </button>
           </div>
@@ -1679,6 +1680,26 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                   <div className="text-emerald-700 font-semibold">✓ Acesso Master Ativo e Protegido</div>
                   <div className="text-stone-400">Autenticação: Session Storage Segura</div>
                 </div>
+              </div>
+
+              {/* Card de Logout Administrativo */}
+              <div className="p-4 rounded-2xl border border-red-200 bg-red-50/60 space-y-3 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs font-bold text-red-900 block">
+                    Sessão do Administrador
+                  </span>
+                  <p className="text-[11px] text-red-700 leading-relaxed mt-1">
+                    Encerre a sessão de administrador para desautenticar com segurança neste navegador.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="py-2 px-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs w-fit active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sair do Painel Admin</span>
+                </button>
               </div>
             </div>
           </div>
