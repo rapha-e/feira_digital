@@ -72,6 +72,24 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/redefinir-senha/:path*",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
+      {
+        source: "/redefinir-senha",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
     ];
   },
 };
