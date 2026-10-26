@@ -1606,17 +1606,17 @@ function DashboardContent() {
           </Link>
 
           <div className="flex items-center gap-2">
-            {/* Nome da Loja Logada */}
+            {/* Nome da Loja Logada (Reflete em tempo real o campo Nome da Loja / Empreendimento) */}
             <div 
-              className="flex items-center gap-2 px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-100/90 border border-stone-200/90 max-w-[140px] sm:max-w-[200px] md:max-w-[260px] shadow-2xs" 
-              title={`Loja Conectada: ${business?.name || name || "Minha Loja"}`}
+              className="flex items-center gap-2 px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-100/90 border border-stone-200/90 max-w-[160px] sm:max-w-[240px] md:max-w-[320px] shadow-2xs" 
+              title={`Loja Conectada: ${name.trim() || business?.name || "Minha Loja"}`}
             >
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0 shadow-2xs">
-                {(business?.name || name || "L").charAt(0).toUpperCase()}
+                {(name.trim() || business?.name || "L").charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <span className="block text-xs font-bold text-stone-900 truncate">
-                  {business?.name || name || "Minha Loja"}
+                  {name.trim() || business?.name || "Minha Loja"}
                 </span>
                 <span className="hidden sm:block text-[9px] font-semibold text-emerald-700 uppercase tracking-wider truncate">
                   {business?.plan_tier === "diamond" 
