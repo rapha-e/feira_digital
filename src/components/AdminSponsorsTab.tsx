@@ -17,6 +17,12 @@ import {
   AlertCircle,
   Pencil,
   Trash2,
+  Copy,
+  Check,
+  Code,
+  Globe,
+  LayoutDashboard,
+  Home,
 } from "lucide-react";
 import { Sponsor } from "@/types";
 
@@ -27,6 +33,14 @@ export function AdminSponsorsTab() {
   const [editingSponsor, setEditingSponsor] = useState<Sponsor | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [updatingPlacementId, setUpdatingPlacementId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error" | "warning";
+    text: string;
+  } | null>(null);
+
+  const [showSqlHelper, setShowSqlHelper] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -48,7 +62,7 @@ export function AdminSponsorsTab() {
         setSponsors(data);
       }
     } catch {
-      // Ignora erro
+      // Ignora erro de rede silenciosamente
     } finally {
       setLoading(false);
     }
@@ -86,49 +100,136 @@ export function AdminSponsorsTab() {
     setShowModal(true);
   };
 
+  // Alteração Rápida de Onde o Banner é Exibido (Direto na tabela)
+  const handleQuickPlacementChange = async (spon: Sponsor, newPlacement: "home" | "painel" | "all") => {
+    if (spon.placement === newPlacement) return;
+
+    // Atualização otimista
+    setSponsors(prev =>
+      prev.map(s => (s.id === spon.id ? { ...s, placement: newPlacement } : s))
+    );
+    setUpdatingPlacementId(spon.id);
+
+    try {
+      const res = await fetch("/api/sponsors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          id: spon.id,
+          data: { placement: newPlacement },
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success !== false) {
+        const placeName =
+          newPlacement === "home"
+            ? "Home (Página Inicial)"
+            : newPlacement === "painel"
+            ? "Painel do Lojista"
+            : "Em Ambos (Home e Painel)";
+        setNotification({
+          type: "success",
+          text: `Local de exibição de "${spon.name}" alterado para ${placeName}!`,
+        });
+      } else {
+        setNotification({
+          type: "error",
+          text: "Falha ao atualizar local de exibição no servidor.",
+        });
+        loadSponsors();
+      }
+    } catch {
+      setNotification({
+        type: "error",
+        text: "Erro de comunicação ao salvar local de exibição.",
+      });
+      loadSponsors();
+    } finally {
+      setUpdatingPlacementId(null);
+    }
+  };
+
+  // Alternar status Ativo / Pausado
   const handleToggle = async (spon: Sponsor) => {
     const newStatus = !spon.is_active;
+    // Otimista
+    setSponsors(prev =>
+      prev.map(s => (s.id === spon.id ? { ...s, is_active: newStatus } : s))
+    );
+
     try {
       const res = await fetch("/api/sponsors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "toggle", id: spon.id, is_active: newStatus }),
       });
-      if (res.ok) {
-        setSponsors(prev =>
-          prev.map(s => (s.id === spon.id ? { ...s, is_active: newStatus } : s))
-        );
+      const data = await res.json();
+      if (data.success !== false) {
+        setNotification({
+          type: "success",
+          text: `Anúncio "${spon.name}" agora está ${newStatus ? "ATIVO no ar" : "PAUSADO"}.`,
+        });
+      } else {
+        setNotification({
+          type: "error",
+          text: "Falha ao alterar status do anúncio.",
+        });
+        loadSponsors();
       }
     } catch {
-      alert("Erro ao alterar status do anúncio.");
+      setNotification({
+        type: "error",
+        text: "Erro de comunicação ao alterar status.",
+      });
+      loadSponsors();
     }
   };
 
+  // Excluir Anúncio com confirmação e feedback
   const handleDelete = async (spon: Sponsor) => {
     const confirmed = window.confirm(
-      `Deseja realmente excluir permanentemente o anúncio de "${spon.name}"?\nEsta ação não poderá ser revertida.`
+      `Deseja realmente excluir permanentemente o anúncio de "${spon.name}"?\nEsta ação não poderá ser desfeita.`
     );
     if (!confirmed) return;
 
     setDeletingId(spon.id);
+    // Remoção otimista imediata na interface
+    setSponsors(prev => prev.filter(s => s.id !== spon.id));
+
     try {
       const res = await fetch("/api/sponsors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", id: spon.id }),
       });
-      if (res.ok) {
-        setSponsors(prev => prev.filter(s => s.id !== spon.id));
+
+      const data = await res.json();
+      if (data.success !== false) {
+        setNotification({
+          type: "success",
+          text: `Anúncio de "${spon.name}" removido com sucesso!`,
+        });
       } else {
-        alert("Falha ao excluir anúncio.");
+        setNotification({
+          type: "error",
+          text: "Falha ao excluir anúncio do banco de dados.",
+        });
+        loadSponsors();
       }
     } catch {
-      alert("Erro de comunicação ao excluir anúncio.");
+      setNotification({
+        type: "error",
+        text: "Erro de comunicação ao excluir anúncio.",
+      });
+      loadSponsors();
     } finally {
       setDeletingId(null);
     }
   };
 
+  // Salvar Novo ou Edição no Modal
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
@@ -161,12 +262,17 @@ export function AdminSponsorsTab() {
           }),
         });
 
-        if (res.ok) {
+        const data = await res.json();
+        if (data.success !== false) {
           setShowModal(false);
           setEditingSponsor(null);
+          setNotification({
+            type: "success",
+            text: `Anúncio "${name.trim()}" atualizado com sucesso!`,
+          });
           loadSponsors();
         } else {
-          setFormError("Falha ao atualizar anúncio.");
+          setFormError("Falha ao atualizar anúncio no servidor.");
         }
       } else {
         // Cadastro de novo anúncio
@@ -186,13 +292,18 @@ export function AdminSponsorsTab() {
           }),
         });
 
-        if (res.ok) {
+        const data = await res.json();
+        if (data.success !== false) {
           setShowModal(false);
           setName("");
           setTitle("");
           setSubtitle("");
           setTargetUrl("");
           setImageUrl("");
+          setNotification({
+            type: "success",
+            text: `Novo anunciante "${name.trim()}" cadastrado com sucesso!`,
+          });
           loadSponsors();
         } else {
           setFormError("Falha ao salvar anunciante.");
@@ -205,6 +316,45 @@ export function AdminSponsorsTab() {
     }
   };
 
+  const sqlCreateScript = `-- Copie e execute este script no SQL Editor do seu Supabase Dashboard:
+CREATE TABLE IF NOT EXISTS public.sponsors (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    title text not null,
+    subtitle text,
+    image_url text,
+    target_url text not null,
+    placement text not null default 'home', -- 'home', 'painel', 'all'
+    cta_text text default 'Saiba Mais',
+    badge_text text default 'Parceiro Oficial',
+    is_active boolean not null default true,
+    views_count integer not null default 0,
+    clicks_count integer not null default 0,
+    starts_at timestamp with time zone default now(),
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone default now()
+);
+
+ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "Visualização pública de anunciantes ativos"
+ON public.sponsors FOR SELECT
+TO anon, authenticated
+USING (is_active = true);
+
+CREATE POLICY IF NOT EXISTS "Gerenciamento total de anunciantes para service_role"
+ON public.sponsors FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_sponsors_active ON public.sponsors (placement, is_active, created_at desc);`;
+
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(sqlCreateScript);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   // KPIs
   const totalViews = sponsors.reduce((acc, s) => acc + (s.views_count || 0), 0);
@@ -214,6 +364,34 @@ export function AdminSponsorsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Toast de Notificação */}
+      {notification && (
+        <div
+          className={`p-3.5 rounded-2xl text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-150 ${
+            notification.type === "success"
+              ? "bg-emerald-50 text-emerald-900 border border-emerald-200"
+              : notification.type === "warning"
+              ? "bg-amber-50 text-amber-950 border border-amber-300"
+              : "bg-red-50 text-red-900 border border-red-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notification.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
+            <span>{notification.text}</span>
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="text-stone-400 hover:text-stone-700 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Banner de Métricas B2B */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-xs">
@@ -253,7 +431,7 @@ export function AdminSponsorsTab() {
         </div>
       </div>
 
-      {/* Barra de Ações */}
+      {/* Barra de Ações & Auxílio do Banco */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
         <div>
           <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
@@ -265,14 +443,51 @@ export function AdminSponsorsTab() {
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo Anunciante</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowSqlHelper(!showSqlHelper)}
+            className="inline-flex items-center gap-1.5 py-2 px-3 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-700 font-bold text-xs transition-all cursor-pointer"
+            title="Ver instruções de criação da tabela no Supabase"
+          >
+            <Code className="w-3.5 h-3.5 text-stone-500" />
+            <span>{showSqlHelper ? "Ocultar SQL" : "Script Supabase"}</span>
+          </button>
+
+          <button
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Anunciante</span>
+          </button>
+        </div>
       </div>
+
+      {/* Caixa de Ajuda SQL Supabase (Opcional para Nuvem) */}
+      {showSqlHelper && (
+        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 text-white text-xs space-y-3 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <span className="font-bold flex items-center gap-2 text-amber-400">
+              <Code className="w-4 h-4" />
+              Sincronização com o Banco de Dados do Supabase
+            </span>
+            <button
+              onClick={copySqlToClipboard}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors cursor-pointer"
+            >
+              {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedSql ? "Copiado!" : "Copiar SQL da Tabela"}</span>
+            </button>
+          </div>
+          <p className="text-stone-300 text-[11px] leading-relaxed">
+            O sistema já opera de forma 100% interativa com fallback local resiliente. Para persistir os anunciantes de forma permanente no PostgreSQL do seu projeto Supabase, basta colar o script abaixo no <strong>SQL Editor</strong> do painel Supabase:
+          </p>
+          <pre className="p-3 bg-stone-950 rounded-xl font-mono text-[10px] text-stone-300 overflow-x-auto border border-stone-800 select-all">
+            {sqlCreateScript}
+          </pre>
+        </div>
+      )}
 
       {/* Tabela de Anunciantes */}
       <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
@@ -295,7 +510,7 @@ export function AdminSponsorsTab() {
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-200 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Anunciante & Oferta</th>
-                  <th className="py-3 px-4">Onde Exibe</th>
+                  <th className="py-3 px-4">Onde Exibe (Alteração Imediata)</th>
                   <th className="py-3 px-4 text-center">Visualizações</th>
                   <th className="py-3 px-4 text-center">Cliques</th>
                   <th className="py-3 px-4 text-center">CTR</th>
@@ -309,6 +524,8 @@ export function AdminSponsorsTab() {
                     spon.views_count && spon.views_count > 0
                       ? (((spon.clicks_count || 0) / spon.views_count) * 100).toFixed(1)
                       : "0";
+
+                  const isUpdatingPlacement = updatingPlacementId === spon.id;
 
                   return (
                     <tr key={spon.id} className="hover:bg-stone-50/80 transition-colors">
@@ -340,14 +557,32 @@ export function AdminSponsorsTab() {
                         </div>
                       </td>
 
+                      {/* Seletor Rápido de Placement Diretamente na Linha */}
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-stone-100 text-stone-700 uppercase">
-                          {spon.placement === "home"
-                            ? "🏠 Home (Pública)"
-                            : spon.placement === "painel"
-                            ? "📊 Painel (Lojistas)"
-                            : "🌐 Todos os Locais"}
-                        </span>
+                        <div className="relative inline-block w-44">
+                          <select
+                            disabled={isUpdatingPlacement}
+                            value={spon.placement || "home"}
+                            onChange={e =>
+                              handleQuickPlacementChange(
+                                spon,
+                                e.target.value as "home" | "painel" | "all"
+                              )
+                            }
+                            className={`w-full py-1.5 px-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
+                              spon.placement === "home"
+                                ? "bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100"
+                                : spon.placement === "painel"
+                                ? "bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100"
+                                : "bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100"
+                            } ${isUpdatingPlacement ? "opacity-50" : ""}`}
+                            title="Selecione onde este banner deve aparecer na plataforma"
+                          >
+                            <option value="home">🏠 Home (Pública)</option>
+                            <option value="painel">📊 Painel (Lojistas)</option>
+                            <option value="all">🌐 Em Ambos (Home e Painel)</option>
+                          </select>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 text-center font-semibold text-stone-700">
@@ -372,8 +607,8 @@ export function AdminSponsorsTab() {
                           }`}
                           title={
                             spon.is_active
-                              ? "Anúncio Ativo no Ar. Clique para desativar/pausar sem excluir."
-                              : "Anúncio Pausado. Clique para ativar novamente."
+                              ? "Anúncio Ativo no Ar. Clique para pausar."
+                              : "Anúncio Pausado. Clique para ativar."
                           }
                         >
                           {spon.is_active ? (
@@ -405,10 +640,14 @@ export function AdminSponsorsTab() {
                             type="button"
                             onClick={() => handleDelete(spon)}
                             disabled={deletingId === spon.id}
-                            className="p-1.5 rounded-lg border border-stone-200 text-stone-400 hover:text-red-700 hover:bg-red-50 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors cursor-pointer disabled:opacity-50"
                             title="Excluir este anúncio permanentemente"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingId === spon.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
                           </button>
 
                           <a
@@ -517,16 +756,16 @@ export function AdminSponsorsTab() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block font-semibold text-stone-700 mb-1">
-                      Onde Exibir o Banner
+                      Onde Exibir o Banner *
                     </label>
                     <select
                       value={placement}
-                      onChange={e => setPlacement(e.target.value as any)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white"
+                      onChange={e => setPlacement(e.target.value as "home" | "painel" | "all")}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white font-bold"
                     >
-                      <option value="home">Home (Página Inicial)</option>
-                      <option value="painel">Painel do Lojista (/painel)</option>
-                      <option value="all">Em Ambos (Home e Painel)</option>
+                      <option value="home">🏠 Home (Página Inicial)</option>
+                      <option value="painel">📊 Painel do Lojista (/painel)</option>
+                      <option value="all">🌐 Em Ambos (Home e Painel)</option>
                     </select>
                   </div>
 
@@ -601,4 +840,3 @@ export function AdminSponsorsTab() {
     </div>
   );
 }
-
