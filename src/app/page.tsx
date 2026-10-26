@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 import { SearchFilter } from "@/components/SearchFilter";
 import { BusinessCard } from "@/components/BusinessCard";
-import { getBusinesses, getCategories } from "@/lib/data";
+import { SponsorBanner } from "@/components/SponsorBanner";
+import { getBusinesses, getCategories, getActiveSponsors } from "@/lib/data";
 import { sortBusinessesByProximity } from "@/lib/geo";
 import { Store, Sparkles, Navigation, ShieldCheck } from "lucide-react";
 
@@ -29,13 +30,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const userLat = params.lat ? parseFloat(params.lat) : undefined;
   const userLng = params.lng ? parseFloat(params.lng) : undefined;
 
-  const [categories, rawBusinesses] = await Promise.all([
+  const [categories, rawBusinesses, sponsors] = await Promise.all([
     getCategories(),
     getBusinesses({
       categorySlug: currentCategory,
       query: currentQuery,
       onlyOpen,
     }),
+    getActiveSponsors("home"),
   ]);
 
   const businesses = sortBusinessesByProximity(rawBusinesses, {
@@ -80,6 +82,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             />
           </Suspense>
         </section>
+
+        {/* Banner de Apoio B2B / Patrocinador Oficial */}
+        <SponsorBanner sponsors={sponsors} placement="home" />
 
         {/* Showcase Grid */}
         <section className="space-y-4">

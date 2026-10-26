@@ -16,6 +16,7 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { BusinessWithProducts, Category, Product } from "@/types";
 import { formatDisplayPhone } from "@/lib/whatsapp";
+import { AdminSponsorsTab } from "@/components/AdminSponsorsTab";
 import {
   ShieldCheck,
   Lock,
@@ -55,7 +56,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "businesses" | "products" | "categories" | "invites" | "metrics" | "system"
+    "overview" | "businesses" | "products" | "categories" | "invites" | "metrics" | "sponsors" | "system"
   >("overview");
 
   const [loading, setLoading] = useState(false);
@@ -726,6 +727,17 @@ export default function AdminPage() {
             }`}
           >
             📈 Métricas & Tráfego
+          </button>
+
+          <button
+            onClick={() => setActiveTab("sponsors")}
+            className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === "sponsors"
+                ? "bg-amber-500 text-stone-950 font-black shadow-xs"
+                : "text-amber-300 hover:bg-stone-800 hover:text-white"
+            }`}
+          >
+            📢 Anunciantes & B2B
           </button>
 
           <button
@@ -1704,6 +1716,9 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
             </div>
           </div>
         )}
+
+        {/* ================= ABA 8: GESTÃO DE ANUNCIANTES & BANNERS B2B ================= */}
+        {activeTab === "sponsors" && <AdminSponsorsTab />}
 
         {/* ================= MODAL: EDITAR LOJA / EMPREENDEDOR ================= */}
         {editingBiz && (

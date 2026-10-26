@@ -1,12 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { Business, BusinessWithProducts, Category, Product } from "@/types";
+import { Business, BusinessWithProducts, Category, Product, Sponsor } from "@/types";
 import {
   INITIAL_BUSINESSES,
   INITIAL_CATEGORIES,
+  INITIAL_SPONSORS,
   incrementMockClick,
   incrementMockView,
+  incrementMockSponsorClick,
+  incrementMockSponsorView,
   updateMockBusiness,
   deleteMockBusiness,
   addMockCategory,
@@ -347,4 +350,128 @@ export async function deleteProductAdmin(id: string): Promise<boolean> {
     return true;
   }
 }
+
+// ==========================================
+// FUNÇÕES DE PUBLICIDADE & SPONSORS (B2B)
+// ==========================================
+
+export async function getActiveSponsors(placement: "home" | "painel" | "all" = "home"): Promise<Sponsor[]> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+    }
+
+    const supabase = await createClient();
+    let query = supabase
+      .from("sponsors")
+      .select("*")
+      .eq("is_active", true);
+
+    if (placement !== "all") {
+      query = query.or(`placement.eq.${placement},placement.eq.all`);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+    }
+
+    return data as Sponsor[];
+  } catch {
+    return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+  }
+}
+
+export async function getAllSponsorsAdmin(): Promise<Sponsor[]> {
+  try {
+    if (!isSupabaseConfigured()) {
+      return [...INITIAL_SPONSORS];
+    }
+    const supabase = getAdminSupabaseClient();
+    const { data, error } = await supabase.from("sponsors").select("*").order("created_at", { ascending: false });
+    if (error || !data) {
+      return [...INITIAL_SPONSORS];
+    }
+    return data as Sponsor[];
+  } catch {
+    return [...INITIAL_SPONSORS];
+  }
+}
+
+export async function recordSponsorView(sponsorId: string): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) {
+      incrementMockSponsorView(sponsorId);
+      return;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { data } = await supabase.from("sponsors").select("views_count").eq("id", sponsorId).single();
+    if (data) {
+      await supabase.from("sponsors").update({ views_count: (data.views_count || 0) + 1 }).eq("id", sponsorId);
+    }
+  } catch {
+    incrementMockSponsorView(sponsorId);
+  }
+}
+
+export async function recordSponsorClick(sponsorId: string): Promise<void> {
+  try {
+    if (!isSupabaseConfigured()) {
+      incrementMockSponsorClick(sponsorId);
+      return;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { data } = await supabase.from("sponsors").select("clicks_count").eq("id", sponsorId).single();
+    if (data) {
+      await supabase.from("sponsors").update({ clicks_count: (data.clicks_count || 0) + 1 }).eq("id", sponsorId);
+    }
+  } catch {
+    incrementMockSponsorClick(sponsorId);
+  }
+}
+
+export async function toggleSponsorActive(sponsorId: string, isActive: boolean): Promise<boolean> {
+  try {
+    if (!isSupabaseConfigured()) {
+      const spon = INITIAL_SPONSORS.find(s => s.id === sponsorId);
+      if (spon) spon.is_active = isActive;
+      return true;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { error } = await supabase.from("sponsors").update({ is_active: isActive }).eq("id", sponsorId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function createSponsorAdmin(sponsorData: Partial<Sponsor>): Promise<boolean> {
+  try {
+    if (!isSupabaseConfigured()) {
+      INITIAL_SPONSORS.unshift({
+        id: `spon-${Date.now()}`,
+        name: sponsorData.name || "Novo Parceiro",
+        title: sponsorData.title || "Oferta Especial",
+        subtitle: sponsorData.subtitle || "",
+        image_url: sponsorData.image_url || null,
+        target_url: sponsorData.target_url || "https://wa.me/5561999999999",
+        placement: sponsorData.placement || "home",
+        cta_text: sponsorData.cta_text || "Saiba Mais",
+        badge_text: sponsorData.badge_text || "Parceiro Oficial",
+        is_active: true,
+        views_count: 0,
+        clicks_count: 0,
+        created_at: new Date().toISOString(),
+      });
+      return true;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { error } = await supabase.from("sponsors").insert([sponsorData]);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 

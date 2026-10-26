@@ -68,3 +68,22 @@ export interface BusinessWithProducts extends Business {
   products: Product[];
   category?: Category;
 }
+
+export interface Sponsor {
+  id: string;
+  name: string;
+  title: string;
+  subtitle?: string | null;
+  image_url?: string | null;
+  target_url: string;
+  placement: "home" | "painel" | "all" | string;
+  cta_text?: string | null;
+  badge_text?: string | null;
+  is_active: boolean;
+  views_count?: number;
+  clicks_count?: number;
+  starts_at?: string;
+  expires_at?: string | null;
+  created_at?: string;
+}
+

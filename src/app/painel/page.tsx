@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { Business, Category, Product } from "@/types";
+import { Business, Category, Product, Sponsor } from "@/types";
+import { SponsorBanner } from "@/components/SponsorBanner";
 import {
   INITIAL_CATEGORIES,
   INITIAL_BUSINESSES,
@@ -71,12 +72,22 @@ function DashboardContent() {
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/sponsors?placement=painel")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSponsors(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // Business Form State
   const [cnpj, setCnpj] = useState("");
@@ -1526,6 +1537,11 @@ function DashboardContent() {
               <X className="w-4 h-4" />
             </button>
           </div>
+        )}
+
+        {/* Parceiro Oficial / Clube de Benefícios B2B para o Lojista */}
+        {sponsors.length > 0 && (
+          <SponsorBanner sponsors={sponsors} placement="painel" />
         )}
 
         {/* --- PILAR 1: CHECKLIST DE ATIVAÇÃO / ONBOARDING GAMIFICADO --- */}

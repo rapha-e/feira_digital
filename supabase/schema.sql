@@ -279,4 +279,41 @@ on public.promotions for insert
 to authenticated
 with check (true);
 
+-- ============================================================
+-- 10. Tabela: sponsors (Publicidade B2B, Banners e Parceiros Oficiais)
+-- ============================================================
+create table if not exists public.sponsors (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,                     -- Ex: "Atacadão das Embalagens", "Stone Maquininhas"
+    title text not null,                    -- Ex: "Embalagens delivery com 15% OFF para MEIs"
+    subtitle text,                          -- Ex: "Frete grátis em todo o DF para pedidos no WhatsApp"
+    image_url text,                         -- Logo ou arte visual
+    target_url text not null,               -- Link de destino do anunciante
+    placement text not null default 'home', -- 'home' (vitrine pública), 'painel' (área do lojista), 'all' (ambos)
+    cta_text text default 'Saiba Mais',     -- Ex: "Pegar Desconto", "Falar no WhatsApp"
+    badge_text text default 'Parceiro Oficial', -- Ex: "Apoio ao Empreendedor", "Oferta B2B"
+    is_active boolean not null default true,
+    views_count integer not null default 0,
+    clicks_count integer not null default 0,
+    starts_at timestamp with time zone default now(),
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone default now()
+);
+
+alter table public.sponsors enable row level security;
+
+create policy "Visualização pública de anunciantes ativos"
+on public.sponsors for select
+to anon, authenticated
+using (is_active = true);
+
+create policy "Gerenciamento total de anunciantes para service_role"
+on public.sponsors for all
+to service_role
+using (true)
+with check (true);
+
+create index if not exists idx_sponsors_active on public.sponsors (placement, is_active, created_at desc);
+
+
 
