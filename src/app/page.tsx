@@ -33,7 +33,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getCategories(),
     getBusinesses({
       categorySlug: currentCategory,
-      neighborhood: currentNeighborhood,
       query: currentQuery,
       onlyOpen,
     }),
@@ -49,28 +48,28 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="min-h-screen bg-stone-50 flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* Compact Hero Section */}
-        <section className="bg-gradient-to-r from-emerald-900 via-stone-900 to-stone-950 text-white rounded-2xl p-4 sm:p-6 shadow-md relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl space-y-2.5">
+        <section className="bg-gradient-to-r from-emerald-900 via-stone-900 to-stone-950 text-white rounded-3xl p-5 sm:p-7 shadow-md relative overflow-hidden">
+          <div className="relative z-10 max-w-3xl space-y-2.5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold backdrop-blur-xs border border-emerald-500/30">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Conexão direta com microempreendedores locais</span>
+              <span>Conexão direta com microempreendedores locais do DF</span>
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight sm:leading-snug text-white">
               Produtos e serviços do seu bairro direto no{" "}
               <span className="text-emerald-400">WhatsApp</span>
             </h1>
-            <p className="text-stone-300 text-xs sm:text-sm leading-relaxed max-w-xl">
+            <p className="text-stone-300 text-xs sm:text-sm leading-relaxed max-w-2xl">
               Sem taxas ou intermediários. Encontre fornecedores locais de confiança, consulte cardápios e feche seu pedido com um toque.
             </p>
           </div>
           {/* Subtle background glow */}
-          <div className="absolute -right-8 -bottom-8 w-56 h-56 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -right-8 -bottom-8 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
         </section>
 
         {/* Search & Filters */}
-        <section className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200/70 shadow-xs">
+        <section className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200/80 shadow-xs">
           <Suspense fallback={<div className="h-10 animate-pulse bg-stone-100 rounded-xl" />}>
             <SearchFilter
               categories={categories}
@@ -87,17 +86,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-base sm:text-lg font-extrabold text-stone-900 flex items-center gap-2">
               <span>Vitrines em Destaque</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-stone-200 text-stone-700">
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-stone-200 text-stone-700">
                 {businesses.length} {businesses.length === 1 ? "loja" : "lojas"}
               </span>
             </h2>
 
-            {userLat !== undefined && userLng !== undefined && (
+            {currentNeighborhood ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                <Navigation className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+                <span>
+                  Lojas em <strong>{currentNeighborhood}</strong> e regiões mais próximas
+                </span>
+              </span>
+            ) : userLat !== undefined && userLng !== undefined ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
                 <Navigation className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
                 <span>Mais próximos de você</span>
               </span>
-            )}
+            ) : null}
           </div>
 
           {businesses.length === 0 ? (
@@ -114,7 +120,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </p>
               </div>
 
-              {/* Chamada Secundária Construtiva para Incentivar Novos Cadastros (PRD 4.0) */}
+              {/* Chamada Secundária Construtiva para Incentivar Novos Cadastros */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                 <Link
                   href="/"
@@ -132,7 +138,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {businesses.map(business => (
                 <BusinessCard key={business.id} business={business} />
               ))}
@@ -143,7 +149,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Footer */}
       <footer className="w-full bg-white border-t border-stone-200 py-4 text-center text-xs text-stone-500">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>© {new Date().getFullYear()} Feira Digital - Vitrine & Conexão Local via WhatsApp</span>
           <div className="flex items-center gap-4">
             <Link

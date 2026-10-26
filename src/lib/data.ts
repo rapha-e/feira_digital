@@ -48,6 +48,7 @@ export async function getBusinesses(filters?: {
   neighborhood?: string;
   query?: string;
   onlyOpen?: boolean;
+  strictNeighborhood?: boolean;
 }): Promise<BusinessWithProducts[]> {
   try {
     if (!isSupabaseConfigured()) {
@@ -64,7 +65,7 @@ export async function getBusinesses(filters?: {
       queryBuilder = queryBuilder.eq("is_open", true);
     }
 
-    if (filters?.neighborhood) {
+    if (filters?.strictNeighborhood && filters?.neighborhood) {
       queryBuilder = queryBuilder.ilike("neighborhood", `%${filters.neighborhood}%`);
     }
 

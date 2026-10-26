@@ -16,6 +16,7 @@ import {
   UserLocation,
   fetchAddressByCep,
   reverseGeocode,
+  resolveDfRegionCoordinates,
 } from "@/lib/geo";
 
 export function LocationSelector() {
@@ -46,6 +47,15 @@ export function LocationSelector() {
 
   const saveAndApplyLocation = (loc: UserLocation | null) => {
     if (loc) {
+      // Se não tiver coordenadas, tenta resolver pelo bairro informado
+      if ((loc.lat === undefined || loc.lng === undefined) && loc.neighborhood) {
+        const resolved = resolveDfRegionCoordinates(loc.neighborhood);
+        if (resolved) {
+          loc.lat = resolved.lat;
+          loc.lng = resolved.lng;
+        }
+      }
+
       localStorage.setItem("feira_user_location", JSON.stringify(loc));
       setUserLocation(loc);
 
@@ -302,6 +312,50 @@ export function LocationSelector() {
                 </button>
               </div>
             </form>
+
+            {/* Atalhos Rápidos por Região Administrativa do DF */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                Regiões Populares do DF
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Gama",
+                  "Águas Claras",
+                  "Taguatinga",
+                  "Ceilândia",
+                  "Guará",
+                  "Samambaia",
+                  "Asa Sul",
+                  "Asa Norte",
+                  "Sudoeste",
+                  "Santa Maria",
+                  "Sobradinho",
+                  "Planaltina",
+                ].map(reg => (
+                  <button
+                    key={reg}
+                    type="button"
+                    onClick={() => {
+                      saveAndApplyLocation({
+                        neighborhood: reg,
+                        city: "Brasília",
+                        state: "DF",
+                        label: `${reg}, DF`,
+                        source: "manual",
+                      });
+                    }}
+                    className={`py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      userLocation?.neighborhood?.toLowerCase() === reg.toLowerCase()
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
+                        : "bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200"
+                    }`}
+                  >
+                    {reg}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Opção 3: Digitar Bairro / Cidade */}
             <form onSubmit={handleManualNeighborhood} className="space-y-2">

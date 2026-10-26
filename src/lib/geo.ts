@@ -199,14 +199,105 @@ export async function reverseGeocode(
 }
 
 /**
- * RF03: Algoritmo de Busca e Ordenação por Proximidade com Fallback Regional Progressivo
+ * Mapeamento de Coordenadas Centrais das Regiões Administrativas do DF
+ * Permite calcular distâncias precisas mesmo quando a busca for textual por Bairro/RA
+ */
+export const DF_REGIONS_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  "gama": { lat: -16.0170, lng: -48.0670 },
+  "santa maria": { lat: -16.0100, lng: -47.9900 },
+  "samambaia": { lat: -15.8750, lng: -48.0900 },
+  "recanto das emas": { lat: -15.9100, lng: -48.0700 },
+  "riacho fundo": { lat: -15.8800, lng: -48.0100 },
+  "riacho fundo i": { lat: -15.8800, lng: -48.0100 },
+  "riacho fundo ii": { lat: -15.8950, lng: -48.0350 },
+  "taguatinga": { lat: -15.8331, lng: -48.0567 },
+  "taguatinga norte": { lat: -15.8270, lng: -48.0600 },
+  "taguatinga sul": { lat: -15.8380, lng: -48.0520 },
+  "taguatinga centro": { lat: -15.8331, lng: -48.0567 },
+  "aguas claras": { lat: -15.8344, lng: -48.0267 },
+  "águas claras": { lat: -15.8344, lng: -48.0267 },
+  "vicente pires": { lat: -15.8050, lng: -48.0300 },
+  "ceilandia": { lat: -15.8200, lng: -48.1100 },
+  "ceilândia": { lat: -15.8200, lng: -48.1100 },
+  "ceilandia norte": { lat: -15.8120, lng: -48.1150 },
+  "ceilândia norte": { lat: -15.8120, lng: -48.1150 },
+  "ceilandia sul": { lat: -15.8280, lng: -48.1050 },
+  "ceilândia sul": { lat: -15.8280, lng: -48.1050 },
+  "guara": { lat: -15.8200, lng: -47.9800 },
+  "guará": { lat: -15.8200, lng: -47.9800 },
+  "guara i": { lat: -15.8150, lng: -47.9780 },
+  "guará i": { lat: -15.8150, lng: -47.9780 },
+  "guara ii": { lat: -15.8250, lng: -47.9830 },
+  "guará ii": { lat: -15.8250, lng: -47.9830 },
+  "nucleo bandeirante": { lat: -15.8700, lng: -47.9600 },
+  "núcleo bandeirante": { lat: -15.8700, lng: -47.9600 },
+  "candangolandia": { lat: -15.8500, lng: -47.9500 },
+  "candangolândia": { lat: -15.8500, lng: -47.9500 },
+  "sudoeste": { lat: -15.7950, lng: -47.9250 },
+  "octogonal": { lat: -15.7950, lng: -47.9250 },
+  "cruzeiro": { lat: -15.7900, lng: -47.9350 },
+  "cruzeiro novo": { lat: -15.7890, lng: -47.9370 },
+  "cruzeiro velho": { lat: -15.7920, lng: -47.9330 },
+  "asa sul": { lat: -15.8080, lng: -47.8990 },
+  "asa norte": { lat: -15.7650, lng: -47.8830 },
+  "plano piloto": { lat: -15.7939, lng: -47.8828 },
+  "lago sul": { lat: -15.8400, lng: -47.8600 },
+  "lago norte": { lat: -15.7300, lng: -47.8700 },
+  "jardim botanico": { lat: -15.8700, lng: -47.8200 },
+  "jardim botânico": { lat: -15.8700, lng: -47.8200 },
+  "sao sebastiao": { lat: -15.8980, lng: -47.7680 },
+  "são sebastião": { lat: -15.8980, lng: -47.7680 },
+  "paranoa": { lat: -15.7700, lng: -47.7800 },
+  "paranoá": { lat: -15.7700, lng: -47.7800 },
+  "itapoa": { lat: -15.7700, lng: -47.7800 },
+  "itapoã": { lat: -15.7700, lng: -47.7800 },
+  "del lago": { lat: -15.7700, lng: -47.7800 },
+  "sobradinho": { lat: -15.6530, lng: -47.7890 },
+  "sobradinho ii": { lat: -15.6300, lng: -47.8100 },
+  "planaltina": { lat: -15.6170, lng: -47.6500 },
+  "brazlandia": { lat: -15.6700, lng: -48.2000 },
+  "brazlândia": { lat: -15.6700, lng: -48.2000 },
+  "brasilia": { lat: -15.7939, lng: -47.8828 },
+  "brasília": { lat: -15.7939, lng: -47.8828 },
+};
+
+function normalizeGeoText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+export function resolveDfRegionCoordinates(neighborhood?: string): { lat: number; lng: number } | null {
+  if (!neighborhood) return null;
+  const normalized = normalizeGeoText(neighborhood);
+
+  if (DF_REGIONS_COORDINATES[normalized]) {
+    return DF_REGIONS_COORDINATES[normalized];
+  }
+
+  // Busca por correspondência parcial
+  for (const [key, coords] of Object.entries(DF_REGIONS_COORDINATES)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return coords;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * RF03: Algoritmo de Proximidade Regional Progressiva
+ * Regra: Quando uma localização for informada (ex: Gama), as lojas daquela localidade
+ * aparecem PRIMEIRO, seguidas das lojas mais próximas de todas as modalidades.
  */
 export function sortBusinessesByProximity(
   businesses: BusinessWithProducts[],
   userLocation?: UserLocation | null
 ): BusinessWithProducts[] {
-  if (!userLocation) {
-    // Sem localização, prioriza os empreendedores destacados patrocinados
+  if (!userLocation || (!userLocation.lat && !userLocation.lng && !userLocation.neighborhood)) {
+    // Sem localização informada: destaca os patrocinados e depois ordem padrão
     return [...businesses].sort((a, b) => {
       const aFeatured = a.is_featured ? 1 : 0;
       const bFeatured = b.is_featured ? 1 : 0;
@@ -214,67 +305,101 @@ export function sortBusinessesByProximity(
     });
   }
 
-  const userLat = userLocation.lat;
-  const userLng = userLocation.lng;
-  const userNeighborhood = userLocation.neighborhood?.toLowerCase().trim();
-  const userCity = userLocation.city?.toLowerCase().trim();
+  // 1. Resolver coordenadas do usuário (GPS, CEP ou inferido pelo Bairro/RA)
+  let userLat = userLocation.lat;
+  let userLng = userLocation.lng;
+  const rawNeighborhood = userLocation.neighborhood?.trim() || "";
+  const normUserNeighborhood = normalizeGeoText(rawNeighborhood);
 
-  // Caso 1: Usuário possui coordenadas válidas (GPS ou CEP)
-  if (userLat !== undefined && userLng !== undefined) {
-    const withDistance = businesses.map(b => {
-      if (b.latitude && b.longitude) {
-        const dist = calculateDistanceKm(userLat, userLng, b.latitude, b.longitude);
-        return { ...b, distance_km: dist };
-      }
-      // Se a loja não tem coordenadas salvas mas tem o mesmo bairro
-      if (userNeighborhood && b.neighborhood.toLowerCase().trim() === userNeighborhood) {
-        return { ...b, distance_km: 1.0 }; // Aproximação de 1km para mesmo bairro
-      }
-      if (userCity && b.city.toLowerCase().trim() === userCity) {
-        return { ...b, distance_km: 10.0 }; // Aproximação de 10km para mesma cidade
-      }
-      return { ...b, distance_km: 999.0 };
-    });
+  if ((userLat === undefined || userLng === undefined) && rawNeighborhood) {
+    const resolvedCoords = resolveDfRegionCoordinates(rawNeighborhood);
+    if (resolvedCoords) {
+      userLat = resolvedCoords.lat;
+      userLng = resolvedCoords.lng;
+    }
+  }
 
-    // Ordenação Híbrida: Destaques Patrocinados Primeiro -> Distância mais próxima -> Restante
-    return withDistance.sort((a, b) => {
+  // 2. Calcular distância de cada estabelecimento
+  const withDistance = businesses.map(b => {
+    const normBizNeighborhood = normalizeGeoText(b.neighborhood || "");
+    const isLocal = Boolean(
+      normUserNeighborhood &&
+        (normBizNeighborhood.includes(normUserNeighborhood) ||
+          normUserNeighborhood.includes(normBizNeighborhood))
+    );
+
+    let calculatedDistance: number | null = null;
+
+    if (userLat !== undefined && userLng !== undefined) {
+      let bizLat = b.latitude;
+      let bizLng = b.longitude;
+
+      if ((bizLat === null || bizLat === undefined) && b.neighborhood) {
+        const defaultBizCoords = resolveDfRegionCoordinates(b.neighborhood);
+        if (defaultBizCoords) {
+          bizLat = defaultBizCoords.lat;
+          bizLng = defaultBizCoords.lng;
+        }
+      }
+
+      if (bizLat !== null && bizLat !== undefined && bizLng !== null && bizLng !== undefined) {
+        calculatedDistance = calculateDistanceKm(userLat, userLng, bizLat, bizLng);
+        // Se for do mesmo bairro, garante que mostre como muito próximo (< 1km)
+        if (isLocal && calculatedDistance > 3.0) {
+          calculatedDistance = 0.8;
+        }
+      } else if (isLocal) {
+        calculatedDistance = 0.5;
+      }
+    } else if (isLocal) {
+      calculatedDistance = 0.5;
+    }
+
+    return {
+      ...b,
+      distance_km: calculatedDistance,
+      _isLocalMatch: isLocal,
+    };
+  });
+
+  // 3. Ordenação Estruturada:
+  // - 1º: Lojas da LOCALIDADE SELECIONADA primeiro (com Destaques da localidade no topo)
+  // - 2º: Lojas das outras localidades mais próximas em ordem crescente de distância
+  return withDistance.sort((a, b) => {
+    const aLocal = a._isLocalMatch ? 1 : 0;
+    const bLocal = b._isLocalMatch ? 1 : 0;
+
+    // Regra prioritária: localidade primeiro
+    if (aLocal !== bLocal) {
+      return bLocal - aLocal;
+    }
+
+    // Se ambos forem da localidade selecionada
+    if (aLocal && bLocal) {
       const aFeatured = a.is_featured ? 1 : 0;
       const bFeatured = b.is_featured ? 1 : 0;
       if (aFeatured !== bFeatured) {
         return bFeatured - aFeatured;
       }
-      return (a.distance_km ?? 999) - (b.distance_km ?? 999);
-    });
-  }
+      return (a.distance_km ?? 0.5) - (b.distance_km ?? 0.5);
+    }
 
-  // Caso 2: Usuário informou apenas Bairro/Cidade manualmente
-  if (userNeighborhood || userCity) {
-    return [...businesses].sort((a, b) => {
-      const aFeatured = a.is_featured ? 1 : 0;
-      const bFeatured = b.is_featured ? 1 : 0;
-      if (aFeatured !== bFeatured) {
-        return bFeatured - aFeatured;
-      }
+    // Se ambos forem de fora da localidade, ordena estritamente pela proximidade (menor km primeiro)
+    const aDist = a.distance_km ?? 999;
+    const bDist = b.distance_km ?? 999;
 
-      const aNeighborhoodMatch =
-        userNeighborhood && a.neighborhood.toLowerCase().trim() === userNeighborhood ? 1 : 0;
-      const bNeighborhoodMatch =
-        userNeighborhood && b.neighborhood.toLowerCase().trim() === userNeighborhood ? 1 : 0;
+    if (Math.abs(aDist - bDist) > 0.5) {
+      return aDist - bDist;
+    }
 
-      if (aNeighborhoodMatch !== bNeighborhoodMatch) {
-        return bNeighborhoodMatch - aNeighborhoodMatch;
-      }
-
-      const aCityMatch = userCity && a.city.toLowerCase().trim() === userCity ? 1 : 0;
-      const bCityMatch = userCity && b.city.toLowerCase().trim() === userCity ? 1 : 0;
-
-      return bCityMatch - aCityMatch;
-    });
-  }
-
-  return [...businesses].sort((a, b) => {
+    // Se a distância for muito similar (empate técnico de região vizinha), destaque patrocinado desempata
     const aFeatured = a.is_featured ? 1 : 0;
     const bFeatured = b.is_featured ? 1 : 0;
-    return bFeatured - aFeatured;
+    if (aFeatured !== bFeatured) {
+      return bFeatured - aFeatured;
+    }
+
+    return aDist - bDist;
   });
 }
+
