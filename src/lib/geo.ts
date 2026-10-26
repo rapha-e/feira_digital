@@ -307,11 +307,16 @@ export function sortBusinessesByProximity(
   userLocation?: UserLocation | null
 ): BusinessWithProducts[] {
   if (!userLocation || (!userLocation.lat && !userLocation.lng && !userLocation.neighborhood)) {
-    // Sem localização informada: destaca os patrocinados e depois ordem alfabética estável
+    // Sem localização informada: Diamante primeiro, outros destaques depois, e plano grátis
     return [...businesses].sort((a, b) => {
-      const aFeatured = a.is_featured ? 1 : 0;
-      const bFeatured = b.is_featured ? 1 : 0;
-      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+      const getPriority = (biz: typeof a) => {
+        if (biz.plan_tier === "diamond" && biz.is_featured) return 1;
+        if (biz.is_featured) return 2;
+        return 3;
+      };
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+      if (pA !== pB) return pA - pB;
       return (a.name || "").localeCompare(b.name || "");
     });
   }
@@ -378,19 +383,32 @@ export function sortBusinessesByProximity(
     };
   });
 
-  // 3. Função de Classificação de Grupo:
-  // Grupo 1: Destaque da cidade selecionada
-  // Grupo 2: Destaque de outras regiões
-  // Grupo 3: Sem destaque da cidade selecionada
-  // Grupo 4: Sem destaque de outras regiões
-  const getTier = (biz: { is_featured?: boolean; _isLocalMatch?: boolean }): number => {
+  // 3. Regras de Exposição Oficiais Feira Digital:
+  // 1º: Diamante - Catálogo Diamante (sobrepõe todos os destaques em todas as cidades)
+  // 2º: Destaques da cidade selecionada (Plano Pro, Turbo 3 Dias, Semana de Sucesso)
+  // 3º: Lojas do plano grátis da cidade selecionada
+  // 4º: Destaques de outras cidades (não diamante)
+  // 5º: Lojas grátis de outras cidades
+  // Em todos os níveis, o desempate obedece sempre à geolocalização (Distância menor primeiro).
+  const getTier = (biz: { is_featured?: boolean; plan_tier?: string; _isLocalMatch?: boolean }): number => {
     const isFeatured = Boolean(biz.is_featured);
+    const isDiamond = biz.plan_tier === "diamond" && isFeatured;
     const isLocal = Boolean(biz._isLocalMatch);
 
-    if (isFeatured && isLocal) return 1;
-    if (isFeatured && !isLocal) return 2;
+    // 1º Lugar: Diamante sobrepõe tudo em qualquer cidade
+    if (isDiamond) return 1;
+
+    // 2º Lugar: Destaques locais (Plano Pro, Turbo 3 Dias, Semana de Sucesso) da cidade de cadastro
+    if (isFeatured && isLocal) return 2;
+
+    // 3º Lugar: Lojas do plano grátis da cidade de cadastro
     if (!isFeatured && isLocal) return 3;
-    return 4;
+
+    // 4º Lugar: Destaques locais de outras cidades (caso a busca seja ampla)
+    if (isFeatured && !isLocal) return 4;
+
+    // 5º Lugar: Lojas do plano grátis de outras cidades
+    return 5;
   };
 
   return withDistance.sort((a, b) => {
@@ -401,7 +419,7 @@ export function sortBusinessesByProximity(
       return tierA - tierB;
     }
 
-    // Dentro do mesmo grupo, sempre ordena do menor para o maior em distância
+    // Dentro do mesmo grupo, sempre ordena do menor para o maior em distância (mais próximos primeiro)
     const distA = a.distance_km ?? 999;
     const distB = b.distance_km ?? 999;
 

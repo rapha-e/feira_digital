@@ -17,6 +17,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { Business, BusinessWithProducts, Category, Product } from "@/types";
 import { formatDisplayPhone } from "@/lib/whatsapp";
 import { AdminSponsorsTab } from "@/components/AdminSponsorsTab";
+import { AdminSubscriptionsTab } from "@/components/AdminSubscriptionsTab";
+import { getBusinessSubscriptionInfo } from "@/lib/subscription";
 import {
   ShieldCheck,
   Lock,
@@ -57,7 +59,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "businesses" | "products" | "categories" | "invites" | "metrics" | "sponsors" | "system"
+    "overview" | "businesses" | "products" | "categories" | "invites" | "metrics" | "sponsors" | "system" | "subscriptions"
   >("overview");
 
   const [loading, setLoading] = useState(false);
@@ -187,8 +189,8 @@ export default function AdminPage() {
 
   // Ajustar Teto de Produtos de um MEI (sincronizando Plano e Destaques)
   const handleChangeProductLimit = async (biz: BusinessWithProducts, newLimit: number) => {
-    const isDiamond = newLimit >= 50;
-    const isPro = newLimit >= 20;
+    const isDiamond = newLimit >= 30;
+    const isPro = newLimit >= 15;
     const planTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
     const updates: Partial<Business> = {
       product_limit: newLimit,
@@ -257,11 +259,11 @@ export default function AdminPage() {
   const handlePlanTierChange = (tier: string) => {
     setEditBizPlanTier(tier);
     if (tier === "diamond") {
-      setEditBizLimit(50);
+      setEditBizLimit(30);
       setEditBizIsFeatured(true);
       setEditBizIsVerified(true);
     } else if (tier === "pro") {
-      setEditBizLimit(20);
+      setEditBizLimit(15);
       setEditBizIsFeatured(true);
       setEditBizIsVerified(true);
     } else {
@@ -274,11 +276,11 @@ export default function AdminPage() {
   // Mudança de Teto de Produtos sincronizando Plano correspondente
   const handleProductLimitChange = (newLimit: number) => {
     setEditBizLimit(newLimit);
-    if (newLimit >= 50) {
+    if (newLimit >= 30) {
       setEditBizPlanTier("diamond");
       setEditBizIsFeatured(true);
       setEditBizIsVerified(true);
-    } else if (newLimit >= 20) {
+    } else if (newLimit >= 15) {
       setEditBizPlanTier("pro");
       setEditBizIsFeatured(true);
       setEditBizIsVerified(true);
@@ -821,6 +823,28 @@ export default function AdminPage() {
             }`}
           >
             📢 Anunciantes & B2B
+          </button>
+
+          <button
+            onClick={() => setActiveTab("subscriptions")}
+            className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "subscriptions"
+                ? "bg-amber-500 text-stone-950 font-black shadow-xs"
+                : "text-amber-400 hover:bg-stone-800 hover:text-white"
+            }`}
+          >
+            <span>🤝 Assinaturas & Confiança</span>
+            {businesses.filter(b => {
+              const info = getBusinessSubscriptionInfo(b);
+              return info.status === "grace_period" || info.status === "expiring_soon";
+            }).length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-600 text-white font-extrabold animate-pulse">
+                {businesses.filter(b => {
+                  const info = getBusinessSubscriptionInfo(b);
+                  return info.status === "grace_period" || info.status === "expiring_soon";
+                }).length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1808,6 +1832,11 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
         {/* ================= ABA 8: GESTÃO DE ANUNCIANTES & BANNERS B2B ================= */}
         {activeTab === "sponsors" && <AdminSponsorsTab />}
 
+        {/* ================= ABA 9: GESTÃO DE ASSINATURAS & PRAZO DE CONFIANÇA ================= */}
+        {activeTab === "subscriptions" && (
+          <AdminSubscriptionsTab businesses={businesses} onRefresh={loadAllData} />
+        )}
+
         {/* ================= MODAL: EDITAR LOJA / EMPREENDEDOR ================= */}
         {editingBiz && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
@@ -2077,8 +2106,8 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                         className="w-full py-2 px-2.5 rounded-xl border border-stone-200 bg-white text-xs font-bold"
                       >
                         <option value="free">Plano Grátis (5 itens)</option>
-                        <option value="pro">Plano Pro (20 itens + Destaque + Selo)</option>
-                        <option value="diamond">Plano Diamante (50 itens + Destaque + Selo)</option>
+                        <option value="pro">Plano Pro (15 itens + Destaque Cidade + Selo)</option>
+                        <option value="diamond">Plano Diamante (30 itens + Destaque Global + Selo)</option>
                       </select>
                     </div>
                   </div>
@@ -2101,8 +2130,8 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                         className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white text-xs font-bold"
                       >
                         <option value="5">5 itens (Plano Grátis)</option>
-                        <option value="20">20 itens (Plano Pro)</option>
-                        <option value="50">50 itens (Plano Diamante)</option>
+                        <option value="15">15 itens (Plano Pro)</option>
+                        <option value="30">30 itens (Plano Diamante)</option>
                       </select>
                     </div>
 

@@ -165,8 +165,8 @@ export async function activatePlanInSupabase({
   const isDiamond = planId === "diamond_monthly";
   const isPro = planId === "pro_monthly";
   const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
-  const newProductLimit = isDiamond ? 50 : isPro ? 20 : 5;
-  const newIsVerified = isDiamond || isPro ? true : true; // Planos pagos recebem verificado
+  const newProductLimit = isDiamond ? 30 : isPro ? 15 : 5;
+  const newIsVerified = isDiamond || isPro; // Pro e Diamante recebem selo oficial de MEI Verificado
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + (planDays || 30));

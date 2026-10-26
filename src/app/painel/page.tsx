@@ -14,6 +14,7 @@ import {
   saveMockBusiness,
 } from "@/lib/mock-data";
 import { formatDisplayPhone } from "@/lib/whatsapp";
+import { getBusinessSubscriptionInfo } from "@/lib/subscription";
 import {
   Store,
   LogOut,
@@ -855,7 +856,8 @@ function DashboardContent() {
           const isDiamond = selectedPlan?.id === "diamond_monthly";
           const isPro = selectedPlan?.id === "pro_monthly";
           const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
-          const newProductLimit = isDiamond ? 50 : isPro ? 20 : 5;
+          const newProductLimit = isDiamond ? 30 : isPro ? 15 : 5;
+          const newIsVerified = isDiamond || isPro;
 
           if (business) {
             setBusiness({
@@ -863,7 +865,7 @@ function DashboardContent() {
               is_featured: true,
               plan_tier: newPlanTier,
               product_limit: newProductLimit,
-              is_verified: true,
+              is_verified: newIsVerified,
             });
           }
 
@@ -896,7 +898,8 @@ function DashboardContent() {
         const isDiamond = selectedPlan?.id === "diamond_monthly";
         const isPro = selectedPlan?.id === "pro_monthly";
         const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
-        const newProductLimit = isDiamond ? 50 : isPro ? 20 : 5;
+        const newProductLimit = isDiamond ? 30 : isPro ? 15 : 5;
+        const newIsVerified = isDiamond || isPro;
 
         if (business) {
           setBusiness({
@@ -904,7 +907,7 @@ function DashboardContent() {
             is_featured: true,
             plan_tier: newPlanTier,
             product_limit: newProductLimit,
-            is_verified: true,
+            is_verified: newIsVerified,
           });
         }
 
@@ -943,8 +946,8 @@ function DashboardContent() {
       const isDiamond = selectedPlan.id === "diamond_monthly";
       const isPro = selectedPlan.id === "pro_monthly";
       const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : business.plan_tier || "free";
-      const newProductLimit = isDiamond ? 50 : isPro ? 20 : (business.product_limit || 5);
-      const newIsVerified = isDiamond || isPro ? true : Boolean(business.is_verified);
+      const newProductLimit = isDiamond ? 30 : isPro ? 15 : (business.product_limit || 5);
+      const newIsVerified = isDiamond || isPro;
 
       if (isSupabaseConfigured()) {
         const supabase = createClient();
@@ -1625,7 +1628,10 @@ function DashboardContent() {
   const viewsCount = business?.views_count || (isSupabaseConfigured() ? 0 : 142);
   const clicksCount = business?.whatsapp_clicks_count || (isSupabaseConfigured() ? 0 : 38);
   const conversionRate = viewsCount > 0 ? ((clicksCount / viewsCount) * 100).toFixed(1) : "0";
-  const productLimit = business?.product_limit || 5;
+  const productLimit =
+    business?.product_limit ||
+    (business?.plan_tier === "diamond" ? 30 : business?.plan_tier === "pro" ? 15 : 5);
+  const subInfo = getBusinessSubscriptionInfo(business || {});
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col pb-16">
@@ -1783,6 +1789,77 @@ function DashboardContent() {
         {sponsors.length > 0 && (
           <SponsorBanner sponsors={sponsors} placement="painel" />
         )}
+
+        {/* Banner Inteligente de Gestão de Assinatura e Prazo de Confiança (5 Dias) */}
+        {subInfo.inGracePeriod ? (
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border-2 border-amber-400 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-amber-500 text-stone-950 font-black">
+                  <Sparkles className="w-4 h-4 fill-stone-950" />
+                </span>
+                <h3 className="text-sm sm:text-base font-extrabold text-stone-900">
+                  🤝 Prazo de Confiança Ativo: Restam {subInfo.graceDaysRemaining} {subInfo.graceDaysRemaining === 1 ? "dia" : "dias"} de tolerância!
+                </h3>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-700 leading-relaxed max-w-2xl">
+                Sua assinatura anterior venceu, mas como <strong>gesto de parceria e confiança</strong>, mantivemos sua loja no topo temporariamente. Renove hoje para garantir sua posição contínua e não perder contatos de novos clientes no WhatsApp!
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const planId = business?.plan_tier === "diamond" ? "diamond_monthly" : "pro_monthly";
+                const isDiam = planId === "diamond_monthly";
+                handleOpenBoostModal({
+                  id: planId,
+                  title: isDiam ? "Catálogo Diamante (30 Dias)" : "Assinatura MEI Pro (30 Dias)",
+                  price: isDiam ? 49.90 : 29.90,
+                  days: 30,
+                  desc: isDiam
+                    ? "30 dias de destaque no topo em todas as cidades, até 30 produtos e selo Verificado."
+                    : "30 dias de destaque no topo na sua cidade, até 15 produtos e selo de MEI Verificado.",
+                });
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0 text-center"
+            >
+              Renovar Meu Destaque via Pix
+            </button>
+          </div>
+        ) : subInfo.status === "expiring_soon" ? (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <div>
+                <strong className="text-xs sm:text-sm font-bold text-amber-950 block">
+                  ⏰ Sua assinatura vence em {subInfo.daysRemaining} {subInfo.daysRemaining === 1 ? "dia" : "dias"}
+                </strong>
+                <span className="text-[11px] sm:text-xs text-amber-800">
+                  Renove agora para garantir seu lugar privilegiado no topo da sua região sem interrupção nas vendas.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const planId = business?.plan_tier === "diamond" ? "diamond_monthly" : "pro_monthly";
+                const isDiam = planId === "diamond_monthly";
+                handleOpenBoostModal({
+                  id: planId,
+                  title: isDiam ? "Catálogo Diamante (30 Dias)" : "Assinatura MEI Pro (30 Dias)",
+                  price: isDiam ? 49.90 : 29.90,
+                  days: 30,
+                  desc: isDiam
+                    ? "30 dias de destaque no topo em todas as cidades, até 30 produtos e selo Verificado."
+                    : "30 dias de destaque no topo na sua cidade, até 15 produtos e selo de MEI Verificado.",
+                });
+              }}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 text-center"
+            >
+              Renovar Antecipado
+            </button>
+          </div>
+        ) : null}
 
         {/* --- PILAR 1: CHECKLIST DE ATIVAÇÃO / ONBOARDING GAMIFICADO --- */}
         <section className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/90 shadow-xs space-y-3">
@@ -1978,7 +2055,7 @@ function DashboardContent() {
 
           {/* Grid de 4 Planos com Tetos de Catálogo e Destaques */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Plano 1 */}
+            {/* Plano 1: Turbo 3 Dias */}
             <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex flex-col justify-between space-y-3">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
@@ -1986,10 +2063,10 @@ function DashboardContent() {
                 </span>
                 <h4 className="text-sm font-extrabold text-stone-900 mt-1">Turbo 3 Dias</h4>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  Ideal para vender mais em datas de pico e finais de semana.
+                  3 Dias destaque no topo somente na cidade de cadastro. Cota de 5 produtos.
                 </p>
                 <div className="mt-2 text-xl font-black text-stone-900">
-                  R$ 9,90 <span className="text-[11px] font-normal text-stone-400">/único</span>
+                  R$ 9,90 <span className="text-[11px] font-normal text-stone-400">/3 dias</span>
                 </div>
               </div>
 
@@ -2001,7 +2078,7 @@ function DashboardContent() {
                     title: "Turbo Fim de Semana (3 Dias no Topo)",
                     price: 9.90,
                     days: 3,
-                    desc: "Sua vitrine fixada em primeiro lugar na sua região durante 3 dias seguidos.",
+                    desc: "3 dias de destaque no topo na sua cidade de cadastro para datas de pico e finais de semana.",
                   });
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
@@ -2010,7 +2087,7 @@ function DashboardContent() {
               </button>
             </div>
 
-            {/* Plano 2: Mais Popular */}
+            {/* Plano 2: 7 Dias de Pico */}
             <div className="bg-white rounded-2xl p-4 border-2 border-amber-400 shadow-sm flex flex-col justify-between space-y-3 relative overflow-hidden">
               <div className="absolute top-0 right-0 bg-amber-400 text-amber-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-bl-lg">
                 Mais Escolhido
@@ -2021,10 +2098,10 @@ function DashboardContent() {
                 </span>
                 <h4 className="text-sm font-extrabold text-stone-900 mt-1">Semana de Sucesso</h4>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  Uma semana inteira com selo dourado no topo das buscas do bairro.
+                  7 Dias destaque no topo somente na cidade de cadastro. Cota de 5 produtos.
                 </p>
                 <div className="mt-2 text-xl font-black text-stone-900">
-                  R$ 19,90 <span className="text-[11px] font-normal text-stone-400">/semana</span>
+                  R$ 19,90 <span className="text-[11px] font-normal text-stone-400">/7 dias</span>
                 </div>
               </div>
 
@@ -2036,7 +2113,7 @@ function DashboardContent() {
                     title: "Semana de Sucesso (7 Dias no Topo)",
                     price: 19.90,
                     days: 7,
-                    desc: "7 dias completos de posicionamento no topo com selo DESTAQUE dourado.",
+                    desc: "7 dias completos de destaque no topo na sua cidade de cadastro para vendas contínuas.",
                   });
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
@@ -2053,7 +2130,7 @@ function DashboardContent() {
                 </span>
                 <h4 className="text-sm font-extrabold text-stone-900 mt-1">Assinatura MEI Pro</h4>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  Destaque no topo, expansão para até 20 produtos e selo de MEI Verificado.
+                  30 Dias destaque no topo na sua cidade, catálogo até 15 produtos e selo de MEI Verificado.
                 </p>
                 <div className="mt-2 text-xl font-black text-stone-900">
                   R$ 29,90 <span className="text-[11px] font-normal text-stone-400">/mês</span>
@@ -2065,10 +2142,10 @@ function DashboardContent() {
                 onClick={() => {
                   handleOpenBoostModal({
                     id: "pro_monthly",
-                    title: "Assinatura Mensal MEI Pro",
+                    title: "Assinatura Mensal MEI Pro (15 Produtos)",
                     price: 29.90,
                     days: 30,
-                    desc: "30 dias de destaque no topo, expansão para 20 produtos no catálogo e selo oficial de MEI Verificado.",
+                    desc: "30 dias de destaque no topo na sua cidade, expansão para até 15 produtos no catálogo e selo oficial de MEI Verificado.",
                   });
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
@@ -2085,7 +2162,7 @@ function DashboardContent() {
                 </span>
                 <h4 className="text-sm font-extrabold text-stone-900 mt-1">Catálogo Diamante</h4>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  Máximo alcance: até 50 produtos, Destaque prioritário no topo e selo Verificado.
+                  30 Dias destaque no topo em TODAS as cidades (sobrepõe tudo), até 30 produtos e selo Verificado.
                 </p>
                 <div className="mt-2 text-xl font-black text-stone-900">
                   R$ 49,90 <span className="text-[11px] font-normal text-stone-400">/mês</span>
@@ -2097,10 +2174,10 @@ function DashboardContent() {
                 onClick={() => {
                   handleOpenBoostModal({
                     id: "diamond_monthly",
-                    title: "Assinatura Diamante (50 Produtos + Topo)",
+                    title: "Assinatura Diamante (30 Produtos + Todas Cidades)",
                     price: 49.90,
                     days: 30,
-                    desc: "30 dias de destaque topo prioritário, limite de 50 produtos no catálogo e selo oficial de verificado.",
+                    desc: "30 dias de destaque no topo em todas as cidades (sobrepõe outros destaques), expansão para até 30 produtos e selo oficial de verificado.",
                   });
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
