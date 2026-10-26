@@ -230,6 +230,10 @@ export function LocationSelector() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="location-dialog-title"
+          tabIndex={-1}
+          onKeyDown={e => {
+            if (e.key === "Escape") setIsOpen(false);
+          }}
         >
           <div className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             {/* Cabeçalho do Modal */}
@@ -378,28 +382,44 @@ export function LocationSelector() {
 
             {/* Opção 3: Digitar Bairro / Cidade */}
             <form onSubmit={handleManualNeighborhood} className="space-y-2">
-              <label htmlFor="manual-neighborhood-input" className="block text-xs font-semibold text-stone-700">
+              <span className="block text-xs font-semibold text-stone-700">
                 Ou digite seu Bairro e Cidade
-              </label>
+              </span>
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  id="manual-neighborhood-input"
-                  type="text"
-                  value={manualNeighborhood}
-                  onChange={e => setManualNeighborhood(e.target.value)}
-                  placeholder="Ex: Asa Norte"
-                  aria-label="Nome do bairro ou Região Administrativa"
-                  className="px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
-                <input
-                  id="manual-city-input"
-                  type="text"
-                  value={manualCity}
-                  onChange={e => setManualCity(e.target.value)}
-                  placeholder="Cidade (ex: Brasília)"
-                  aria-label="Cidade"
-                  className="px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
+                <div>
+                  <label
+                    htmlFor="manual-neighborhood-input"
+                    className="block text-[11px] font-medium text-stone-600 mb-1"
+                  >
+                    Bairro / RA
+                  </label>
+                  <input
+                    id="manual-neighborhood-input"
+                    type="text"
+                    value={manualNeighborhood}
+                    onChange={e => setManualNeighborhood(e.target.value)}
+                    placeholder="Ex: Asa Norte"
+                    aria-label="Bairro ou Região Administrativa"
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="manual-city-input"
+                    className="block text-[11px] font-medium text-stone-600 mb-1"
+                  >
+                    Cidade
+                  </label>
+                  <input
+                    id="manual-city-input"
+                    type="text"
+                    value={manualCity}
+                    onChange={e => setManualCity(e.target.value)}
+                    placeholder="Cidade (ex: Brasília)"
+                    aria-label="Cidade"
+                    className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
