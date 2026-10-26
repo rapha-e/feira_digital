@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
@@ -23,6 +24,7 @@ export function LocationSelector() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [loadingGps, setLoadingGps] = useState(false);
@@ -36,6 +38,10 @@ export function LocationSelector() {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Controle de Escape global e ciclo de foco (Acessibilidade WCAG 2.1 / LBI)
   useEffect(() => {
@@ -295,10 +301,10 @@ export function LocationSelector() {
         </span>
       </button>
 
-      {/* Modal de Localização */}
-      {isOpen && (
+      {/* Modal de Localização Teleportado para document.body (evita conter pelo backdrop-filter do Header) */}
+      {isOpen && mounted && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
+          className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
           onClick={e => {
             if (e.target === e.currentTarget) setIsOpen(false);
           }}
@@ -310,7 +316,7 @@ export function LocationSelector() {
             aria-labelledby="location-dialog-title"
             tabIndex={-1}
             onKeyDown={handleDialogKeyDown}
-            className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden animate-in zoom-in-95 duration-200 focus:outline-none my-auto"
+            className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl flex flex-col max-h-[min(90vh,620px)] overflow-hidden animate-in zoom-in-95 duration-200 focus:outline-none my-auto"
           >
             {/* Cabeçalho Fixo do Modal */}
             <div className="flex items-center justify-between border-b border-stone-100 p-4 sm:p-5 shrink-0 bg-white">
@@ -528,7 +534,8 @@ export function LocationSelector() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
