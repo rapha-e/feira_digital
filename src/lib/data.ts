@@ -497,4 +497,41 @@ export async function createSponsorAdmin(sponsorData: Partial<Sponsor>): Promise
   }
 }
 
+export async function updateSponsorAdmin(sponsorId: string, updates: Partial<Sponsor>): Promise<boolean> {
+  try {
+    if (!isSupabaseConfigured()) {
+      const sponIndex = INITIAL_SPONSORS.findIndex(s => s.id === sponsorId);
+      if (sponIndex !== -1) {
+        INITIAL_SPONSORS[sponIndex] = { ...INITIAL_SPONSORS[sponIndex], ...updates };
+        return true;
+      }
+      return false;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { error } = await supabase.from("sponsors").update(updates).eq("id", sponsorId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteSponsorAdmin(sponsorId: string): Promise<boolean> {
+  try {
+    if (!isSupabaseConfigured()) {
+      const sponIndex = INITIAL_SPONSORS.findIndex(s => s.id === sponsorId);
+      if (sponIndex !== -1) {
+        INITIAL_SPONSORS.splice(sponIndex, 1);
+        return true;
+      }
+      return false;
+    }
+    const supabase = getAdminSupabaseClient();
+    const { error } = await supabase.from("sponsors").delete().eq("id", sponsorId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+
 

@@ -14,7 +14,7 @@ import {
   adminDeleteProduct,
 } from "@/app/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { BusinessWithProducts, Category, Product } from "@/types";
+import { Business, BusinessWithProducts, Category, Product } from "@/types";
 import { formatDisplayPhone } from "@/lib/whatsapp";
 import { AdminSponsorsTab } from "@/components/AdminSponsorsTab";
 import {
@@ -185,16 +185,24 @@ export default function AdminPage() {
     }
   };
 
-  // Ajustar Teto de Produtos de um MEI
+  // Ajustar Teto de Produtos de um MEI (sincronizando Plano e Destaques)
   const handleChangeProductLimit = async (biz: BusinessWithProducts, newLimit: number) => {
-    const res = await adminUpdateBusiness(biz.id, { product_limit: newLimit });
+    const isDiamond = newLimit >= 50;
+    const isPro = newLimit >= 20;
+    const planTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
+    const updates: Partial<Business> = {
+      product_limit: newLimit,
+      plan_tier: planTier,
+      ...(isPro || isDiamond ? { is_featured: true, is_verified: true } : {}),
+    };
+    const res = await adminUpdateBusiness(biz.id, updates);
     if (res.success) {
       setBusinesses(prev =>
-        prev.map(b => (b.id === biz.id ? { ...b, product_limit: newLimit } : b))
+        prev.map(b => (b.id === biz.id ? { ...b, ...updates } : b))
       );
       setNotification({
         type: res.warning ? "warning" : "success",
-        text: res.warning || `Teto de produtos de "${biz.name}" alterado para ${newLimit} itens.`,
+        text: res.warning || `Teto de "${biz.name}" alterado para ${newLimit} itens (${isDiamond ? "Plano Diamante" : isPro ? "Plano Pro" : "Plano Grátis"}).`,
       });
     } else {
       setNotification({
@@ -245,12 +253,51 @@ export default function AdminPage() {
     setEditBizPlanTier(biz.plan_tier || "free");
   };
 
+  // Mudança de Plano sincronizando Teto, Destaque no Topo e Selo Verificado
+  const handlePlanTierChange = (tier: string) => {
+    setEditBizPlanTier(tier);
+    if (tier === "diamond") {
+      setEditBizLimit(50);
+      setEditBizIsFeatured(true);
+      setEditBizIsVerified(true);
+    } else if (tier === "pro") {
+      setEditBizLimit(20);
+      setEditBizIsFeatured(true);
+      setEditBizIsVerified(true);
+    } else {
+      setEditBizLimit(5);
+      setEditBizIsFeatured(false);
+      setEditBizIsVerified(false);
+    }
+  };
+
+  // Mudança de Teto de Produtos sincronizando Plano correspondente
+  const handleProductLimitChange = (newLimit: number) => {
+    setEditBizLimit(newLimit);
+    if (newLimit >= 50) {
+      setEditBizPlanTier("diamond");
+      setEditBizIsFeatured(true);
+      setEditBizIsVerified(true);
+    } else if (newLimit >= 20) {
+      setEditBizPlanTier("pro");
+      setEditBizIsFeatured(true);
+      setEditBizIsVerified(true);
+    } else {
+      setEditBizPlanTier("free");
+    }
+  };
+
   const handleSaveBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBiz) return;
     setSavingBiz(true);
 
     try {
+      // A partir do plano Pro (pro ou diamond), todas as lojas recebem Destaque no topo e Selo verificado
+      const isProOrDiamond = editBizPlanTier === "pro" || editBizPlanTier === "diamond";
+      const finalIsFeatured = isProOrDiamond ? true : editBizIsFeatured;
+      const finalIsVerified = isProOrDiamond ? true : editBizIsVerified;
+
       const updates = {
         name: editBizName.trim(),
         slug: editBizSlug.trim().toLowerCase(),
@@ -269,8 +316,8 @@ export default function AdminPage() {
         store_pickup: editBizStorePickup,
         accepts_pix: editBizAcceptsPix,
         accepts_card: editBizAcceptsCard,
-        is_featured: editBizIsFeatured,
-        is_verified: editBizIsVerified,
+        is_featured: finalIsFeatured,
+        is_verified: finalIsVerified,
         plan_tier: editBizPlanTier,
       };
 
@@ -1114,9 +1161,8 @@ export default function AdminPage() {
                               className="py-0.5 px-1.5 rounded border border-stone-200 bg-white text-[11px] font-bold text-stone-800"
                             >
                               <option value="5">5 itens (Grátis)</option>
-                              <option value="10">10 itens (Pro)</option>
-                              <option value="20">20 itens (Plus)</option>
-                              <option value="50">50 itens (Ilimitado)</option>
+                              <option value="20">20 itens (Plano Pro)</option>
+                              <option value="50">50 itens (Plano Diamante)</option>
                             </select>
                           </div>
                         </td>
@@ -1764,11 +1810,11 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
 
         {/* ================= MODAL: EDITAR LOJA / EMPREENDEDOR ================= */}
         {editingBiz && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white rounded-3xl max-w-2xl w-full border border-stone-200 shadow-2xl p-6 sm:p-8 my-8 space-y-6">
-              <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+            <div className="bg-white rounded-3xl max-w-2xl w-full border border-stone-200 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-stone-100 p-5 sm:p-6 shrink-0 bg-white">
                 <div>
-                  <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
                     <Store className="w-5 h-5 text-emerald-600" />
                     <span>Editar Empreendimento</span>
                   </h3>
@@ -1779,13 +1825,14 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                 <button
                   type="button"
                   onClick={() => setEditingBiz(null)}
-                  className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                  className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveBusiness} className="space-y-4">
+              <form onSubmit={handleSaveBusiness} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="overflow-y-auto p-5 sm:p-6 space-y-4 flex-1 overscroll-contain">
                 {/* Banner / Card de Visualização do E-mail Cadastrado */}
                 <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -2021,14 +2068,17 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                     </label>
 
                     <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                        Plano do Empreendedor:
+                      </label>
                       <select
                         value={editBizPlanTier}
-                        onChange={e => setEditBizPlanTier(e.target.value)}
-                        className="w-full py-1.5 px-2.5 rounded-xl border border-stone-200 bg-white text-xs font-bold"
+                        onChange={e => handlePlanTierChange(e.target.value)}
+                        className="w-full py-2 px-2.5 rounded-xl border border-stone-200 bg-white text-xs font-bold"
                       >
-                        <option value="free">Plano Grátis</option>
-                        <option value="pro">Plano Pro</option>
-                        <option value="diamond">Plano Diamante</option>
+                        <option value="free">Plano Grátis (5 itens)</option>
+                        <option value="pro">Plano Pro (20 itens + Destaque + Selo)</option>
+                        <option value="diamond">Plano Diamante (50 itens + Destaque + Selo)</option>
                       </select>
                     </div>
                   </div>
@@ -2047,13 +2097,12 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                       </label>
                       <select
                         value={editBizLimit}
-                        onChange={e => setEditBizLimit(Number(e.target.value))}
+                        onChange={e => handleProductLimitChange(Number(e.target.value))}
                         className="w-full py-2 px-3 rounded-xl border border-stone-200 bg-white text-xs font-bold"
                       >
                         <option value="5">5 itens (Plano Grátis)</option>
-                        <option value="10">10 itens (Plano Pro)</option>
-                        <option value="20">20 itens (Plano Plus)</option>
-                        <option value="50">50 itens (Ilimitado)</option>
+                        <option value="20">20 itens (Plano Pro)</option>
+                        <option value="50">50 itens (Plano Diamante)</option>
                       </select>
                     </div>
 
@@ -2112,27 +2161,29 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                     </label>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingBiz(null)}
-                    className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50 cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingBiz}
-                    className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                  >
-                    {savingBiz ? "Salvando..." : "Salvar Alterações"}
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Rodapé Fixo */}
+              <div className="flex items-center justify-end gap-2 p-4 sm:p-5 border-t border-stone-100 bg-stone-50 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingBiz(null)}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-100 cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBiz}
+                  className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  {savingBiz ? "Salvando..." : "Salvar Alterações"}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
+        </div>
+      )}
 
         {/* ================= MODAL: EDITAR CATEGORIA ================= */}
         {editingCategory && (

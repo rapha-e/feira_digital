@@ -759,6 +759,12 @@ function DashboardContent() {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + selectedPlan.days);
 
+      const isDiamond = selectedPlan.id === "diamond_monthly";
+      const isPro = selectedPlan.id === "pro_monthly";
+      const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : business.plan_tier || "free";
+      const newProductLimit = isDiamond ? 50 : isPro ? 20 : (business.product_limit || 5);
+      const newIsVerified = isDiamond || isPro ? true : Boolean(business.is_verified);
+
       if (isSupabaseConfigured()) {
         const supabase = createClient();
         await supabase
@@ -766,7 +772,9 @@ function DashboardContent() {
           .update({
             is_featured: true,
             featured_until: expiresAt.toISOString(),
-            plan_tier: selectedPlan.id === "pro_monthly" ? "pro" : business.plan_tier || "free",
+            plan_tier: newPlanTier,
+            product_limit: newProductLimit,
+            is_verified: newIsVerified,
           })
           .eq("id", business.id);
 
@@ -784,6 +792,9 @@ function DashboardContent() {
         ...business,
         is_featured: true,
         featured_until: expiresAt.toISOString(),
+        plan_tier: newPlanTier,
+        product_limit: newProductLimit,
+        is_verified: newIsVerified,
       });
       setIsBoostModalOpen(false);
       setNotification({
@@ -1449,6 +1460,28 @@ function DashboardContent() {
           </Link>
 
           <div className="flex items-center gap-2">
+            {/* Nome da Loja Logada */}
+            <div 
+              className="flex items-center gap-2 px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-100/90 border border-stone-200/90 max-w-[140px] sm:max-w-[200px] md:max-w-[260px] shadow-2xs" 
+              title={`Loja Conectada: ${business?.name || name || "Minha Loja"}`}
+            >
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0 shadow-2xs">
+                {(business?.name || name || "L").charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-stone-900 truncate">
+                  {business?.name || name || "Minha Loja"}
+                </span>
+                <span className="hidden sm:block text-[9px] font-semibold text-emerald-700 uppercase tracking-wider truncate">
+                  {business?.plan_tier === "diamond" 
+                    ? "💎 Plano Diamante" 
+                    : business?.plan_tier === "pro" 
+                    ? "⭐ Plano Pro" 
+                    : "Plano Grátis"}
+                </span>
+              </div>
+            </div>
+
             {/* Status Operacional Toggle Direto no Topo (Pilar 2) */}
             <button
               onClick={handleToggleStatus}
@@ -1761,8 +1794,8 @@ function DashboardContent() {
             )}
           </div>
 
-          {/* Grid de 3 Planos Rápidos */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Grid de 4 Planos com Tetos de Catálogo e Destaques */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Plano 1 */}
             <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex flex-col justify-between space-y-3">
               <div>
@@ -1793,7 +1826,7 @@ function DashboardContent() {
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
-                Impulsionar por R$ 9,90
+                Impulsionar 3 Dias
               </button>
             </div>
 
@@ -1835,14 +1868,14 @@ function DashboardContent() {
             </div>
 
             {/* Plano 3: Pro */}
-            <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-amber-200/80 shadow-2xs flex flex-col justify-between space-y-3">
+            <div className="bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-purple-200 shadow-2xs flex flex-col justify-between space-y-3">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
                   Plano Pro
                 </span>
                 <h4 className="text-sm font-extrabold text-stone-900 mt-1">Assinatura MEI Pro</h4>
                 <p className="text-[11px] text-stone-500 mt-0.5">
-                  Destaque contínuo, limite para até 25 produtos e selo de Verificado.
+                  Destaque no topo, expansão para até 20 produtos e selo de MEI Verificado.
                 </p>
                 <div className="mt-2 text-xl font-black text-stone-900">
                   R$ 29,90 <span className="text-[11px] font-normal text-stone-400">/mês</span>
@@ -1857,14 +1890,48 @@ function DashboardContent() {
                     title: "Assinatura Mensal MEI Pro",
                     price: 29.90,
                     days: 30,
-                    desc: "30 dias de destaque no topo, expansão para 25 produtos e selo de autenticidade.",
+                    desc: "30 dias de destaque no topo, expansão para 20 produtos no catálogo e selo oficial de MEI Verificado.",
                   });
                   setIsPixCopied(false);
                   setIsBoostModalOpen(true);
                 }}
-                className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
+                className="w-full py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
                 Assinar Plano Pro
+              </button>
+            </div>
+
+            {/* Plano 4: Diamante */}
+            <div className="bg-gradient-to-b from-blue-50/50 to-white rounded-2xl p-4 border border-blue-200 shadow-2xs flex flex-col justify-between space-y-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                  💎 Diamante
+                </span>
+                <h4 className="text-sm font-extrabold text-stone-900 mt-1">Catálogo Diamante</h4>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  Máximo alcance: até 50 produtos, Destaque prioritário no topo e selo Verificado.
+                </p>
+                <div className="mt-2 text-xl font-black text-stone-900">
+                  R$ 49,90 <span className="text-[11px] font-normal text-stone-400">/mês</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPlan({
+                    id: "diamond_monthly",
+                    title: "Assinatura Diamante (50 Produtos + Topo)",
+                    price: 49.90,
+                    days: 30,
+                    desc: "30 dias de destaque topo prioritário, limite de 50 produtos no catálogo e selo oficial de verificado.",
+                  });
+                  setIsPixCopied(false);
+                  setIsBoostModalOpen(true);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Assinar Diamante
               </button>
             </div>
           </div>
