@@ -18,9 +18,10 @@ export function LgpdBanner() {
     }
   }, []);
 
-  const handleAccept = () => {
+  const handleConsent = (choice: "essential" | "all") => {
     try {
-      localStorage.setItem("feira_lgpd_accepted", "true");
+      localStorage.setItem("feira_lgpd_accepted", choice);
+      window.dispatchEvent(new CustomEvent("feira_lgpd_consent_change", { detail: choice }));
     } catch {}
     setVisible(false);
   };
@@ -49,8 +50,8 @@ export function LgpdBanner() {
         </div>
         <button
           type="button"
-          onClick={handleAccept}
-          aria-label="Fechar aviso de privacidade"
+          onClick={() => handleConsent("essential")}
+          aria-label="Fechar aviso de privacidade mantendo apenas os essenciais"
           className="text-stone-400 hover:text-stone-600 p-1 rounded-lg transition-colors cursor-pointer shrink-0"
         >
           <X className="w-4 h-4" />
@@ -60,24 +61,14 @@ export function LgpdBanner() {
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100 flex-wrap">
         <button
           type="button"
-          onClick={() => {
-            try {
-              localStorage.setItem("feira_lgpd_accepted", "essential");
-            } catch {}
-            setVisible(false);
-          }}
+          onClick={() => handleConsent("essential")}
           className="py-1.5 px-3 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 font-semibold text-xs transition-colors cursor-pointer active:scale-95"
         >
           Apenas Necessários
         </button>
         <button
           type="button"
-          onClick={() => {
-            try {
-              localStorage.setItem("feira_lgpd_accepted", "all");
-            } catch {}
-            setVisible(false);
-          }}
+          onClick={() => handleConsent("all")}
           className="py-1.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-2xs cursor-pointer active:scale-95"
         >
           Aceitar Todos

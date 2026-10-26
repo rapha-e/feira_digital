@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
@@ -31,6 +31,75 @@ export function LocationSelector() {
   const [manualNeighborhood, setManualNeighborhood] = useState("");
   const [manualCity, setManualCity] = useState("Brasília");
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const triggerBtnRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const wasOpenRef = useRef(false);
+
+  // Controle de Escape global e ciclo de foco (Acessibilidade WCAG 2.1 / LBI)
+  useEffect(() => {
+    if (isOpen) {
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(false);
+        }
+      };
+
+      window.addEventListener("keydown", handleGlobalKeyDown, true);
+
+      // Foca inicialmente no botão de fechar ou no diálogo
+      const timer = setTimeout(() => {
+        if (closeBtnRef.current) {
+          closeBtnRef.current.focus();
+        } else if (dialogRef.current) {
+          dialogRef.current.focus();
+        }
+      }, 50);
+
+      return () => {
+        window.removeEventListener("keydown", handleGlobalKeyDown, true);
+        clearTimeout(timer);
+      };
+    } else if (wasOpenRef.current) {
+      // Retorna o foco ao botão que disparou a abertura do modal
+      triggerBtnRef.current?.focus();
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Contenção de foco (Focus Trap no modal)
+  const handleDialogKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
+      return;
+    }
+
+    if (e.key === "Tab" && dialogRef.current) {
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first || document.activeElement === dialogRef.current) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  };
 
   // Carrega localização salva no localStorage ao iniciar
   useEffect(() => {
@@ -212,8 +281,11 @@ export function LocationSelector() {
     <>
       {/* Botão no Header (RF04) */}
       <button
+        ref={triggerBtnRef}
         type="button"
         onClick={() => setIsOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         className="inline-flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 hover:text-stone-900 text-xs font-semibold transition-all cursor-pointer shadow-2xs max-w-[150px] sm:max-w-[220px]"
         title="Alterar sua localização para ver ofertas próximas"
       >
@@ -226,16 +298,20 @@ export function LocationSelector() {
       {/* Modal de Localização */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="location-dialog-title"
-          tabIndex={-1}
-          onKeyDown={e => {
-            if (e.key === "Escape") setIsOpen(false);
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={e => {
+            if (e.target === e.currentTarget) setIsOpen(false);
           }}
         >
-          <div className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="location-dialog-title"
+            tabIndex={-1}
+            onKeyDown={handleDialogKeyDown}
+            className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200 focus:outline-none"
+          >
             {/* Cabeçalho do Modal */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
               <div>
@@ -251,10 +327,11 @@ export function LocationSelector() {
                 </p>
               </div>
               <button
+                ref={closeBtnRef}
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Fechar janela de localização"
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
                 <X className="w-5 h-5" />
               </button>

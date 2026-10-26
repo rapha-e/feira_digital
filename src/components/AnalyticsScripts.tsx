@@ -1,10 +1,41 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Script from "next/script";
 import { GA_MEASUREMENT_ID, META_PIXEL_ID } from "@/lib/analytics";
 
 export function AnalyticsScripts() {
+  const [hasConsent, setHasConsent] = useState(false);
+
+  useEffect(() => {
+    try {
+      const consent = localStorage.getItem("feira_lgpd_accepted");
+      if (consent === "all") {
+        setHasConsent(true);
+      }
+    } catch {
+      // Ignora erro em ambientes sem localStorage
+    }
+
+    const handleConsentChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail === "all") {
+        setHasConsent(true);
+      } else {
+        setHasConsent(false);
+      }
+    };
+
+    window.addEventListener("feira_lgpd_consent_change", handleConsentChange);
+    return () => {
+      window.removeEventListener("feira_lgpd_consent_change", handleConsentChange);
+    };
+  }, []);
+
+  if (!hasConsent) {
+    return null;
+  }
+
   return (
     <>
       {/* Inicialização do dataLayer para Google Analytics & Google Ads */}

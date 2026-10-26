@@ -8,9 +8,22 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const pathname = request.nextUrl.pathname;
+  const isRestrictedRoute =
+    pathname.startsWith("/painel") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/login");
+
+  const applyRobotsHeader = (res: NextResponse) => {
+    if (isRestrictedRoute) {
+      res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    }
+    return res;
+  };
+
   // Se as credenciais do Supabase ainda não estiverem configuradas, permite carregar a página normalmente
   if (!isSupabaseConfigured()) {
-    return supabaseResponse;
+    return applyRobotsHeader(supabaseResponse);
   }
 
   const supabase = createServerClient(
@@ -42,15 +55,19 @@ export async function updateSession(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/painel") && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    redirectResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    return redirectResponse;
   }
 
   // Redirecionar usuário logado caso acerte a tela de login
   if (request.nextUrl.pathname.startsWith("/login") && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/painel";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    redirectResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    return redirectResponse;
   }
 
-  return supabaseResponse;
+  return applyRobotsHeader(supabaseResponse);
 }
