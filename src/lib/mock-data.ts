@@ -274,27 +274,13 @@ export function incrementMockView(businessId: string) {
 
 export const INITIAL_SPONSORS: any[] = [
   {
-    id: "spon-1",
-    name: "Atacadão das Embalagens DF",
-    title: "Embalagens delivery e sacolas personalizadas com 15% OFF",
-    subtitle: "Caixas para doces, marmitas, copos e sacolas kraft com entrega em 24h para todo o DF.",
-    image_url: "https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=300&q=80",
-    target_url: "https://wa.me/5561999990001?text=Olá!%20Vi%20o%20anúncio%20na%20Feira%20Digital%20e%20gostaria%20do%20catálogo%20com%20desconto",
-    placement: "all",
-    cta_text: "Pedir Catálogo no WhatsApp",
-    badge_text: "Parceiro Oficial B2B",
-    is_active: true,
-    views_count: 2450,
-    clicks_count: 184,
-  },
-  {
     id: "spon-2",
     name: "Contabilidade & Registro MEI DF",
     title: "Abra ou regularize seu MEI sem burocracia e com assessoria completa",
     subtitle: "Emissão de notas fiscais, declaração anual DASN e parcelamento de débitos para empreendedores.",
     image_url: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=300&q=80",
     target_url: "https://wa.me/5561999990002?text=Olá!%20Vim%20pela%20Feira%20Digital%20e%20quero%20regularizar%20meu%20MEI",
-    placement: "painel",
+    placement: "home",
     cta_text: "Falar com Contador",
     badge_text: "Assessoria MEI",
     is_active: true,

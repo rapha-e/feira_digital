@@ -378,10 +378,41 @@ export async function deleteProductAdmin(id: string): Promise<boolean> {
 // FUNÇÕES DE PUBLICIDADE & SPONSORS (B2B)
 // ==========================================
 
+import fs from "fs";
+import path from "path";
+
+const SPONSORS_FILE = path.join(process.cwd(), "src", "data", "sponsors.json");
+
+function getStoredSponsors(): Sponsor[] {
+  try {
+    if (fs.existsSync(SPONSORS_FILE)) {
+      const content = fs.readFileSync(SPONSORS_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) return parsed as Sponsor[];
+    }
+  } catch (err) {
+    console.error("[getStoredSponsors] Erro ao ler arquivo de sponsors:", err);
+  }
+  return [...INITIAL_SPONSORS];
+}
+
+function persistStoredSponsors(list: Sponsor[]): void {
+  try {
+    const dir = path.dirname(SPONSORS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(SPONSORS_FILE, JSON.stringify(list, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[persistStoredSponsors] Erro ao salvar arquivo de sponsors:", err);
+  }
+}
+
 export async function getActiveSponsors(placement: "home" | "painel" | "all" = "home"): Promise<Sponsor[]> {
   try {
     if (!isSupabaseConfigured()) {
-      return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+      const list = getStoredSponsors();
+      return list.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
     }
 
     const supabase = await createClient();
@@ -396,69 +427,83 @@ export async function getActiveSponsors(placement: "home" | "painel" | "all" = "
 
     const { data, error } = await query.order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+    // Se o Supabase responder com sucesso e encontrar dados na tabela
+    if (!error && data && data.length > 0) {
+      return data as Sponsor[];
     }
 
-    return data as Sponsor[];
+    // Fallback durável para o arquivo persistente
+    const list = getStoredSponsors();
+    return list.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
   } catch {
-    return INITIAL_SPONSORS.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
+    const list = getStoredSponsors();
+    return list.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
   }
 }
 
 export async function getAllSponsorsAdmin(): Promise<Sponsor[]> {
   try {
     if (!isSupabaseConfigured()) {
-      return [...INITIAL_SPONSORS];
+      return getStoredSponsors();
     }
     const supabase = getAdminSupabaseClient();
     const { data, error } = await supabase.from("sponsors").select("*").order("created_at", { ascending: false });
-    if (error || !data) {
-      return [...INITIAL_SPONSORS];
+    if (!error && data && data.length > 0) {
+      return data as Sponsor[];
     }
-    return data as Sponsor[];
+    return getStoredSponsors();
   } catch {
-    return [...INITIAL_SPONSORS];
+    return getStoredSponsors();
   }
 }
 
 export async function recordSponsorView(sponsorId: string): Promise<void> {
+  const list = getStoredSponsors();
+  const spon = list.find(s => s.id === sponsorId);
+  if (spon) {
+    spon.views_count = (spon.views_count || 0) + 1;
+    persistStoredSponsors(list);
+  }
+
   try {
-    if (!isSupabaseConfigured()) {
-      incrementMockSponsorView(sponsorId);
-      return;
-    }
+    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) return;
     const supabase = getAdminSupabaseClient();
     const { data } = await supabase.from("sponsors").select("views_count").eq("id", sponsorId).single();
     if (data) {
       await supabase.from("sponsors").update({ views_count: (data.views_count || 0) + 1 }).eq("id", sponsorId);
     }
   } catch {
-    incrementMockSponsorView(sponsorId);
+    // Silencioso
   }
 }
 
 export async function recordSponsorClick(sponsorId: string): Promise<void> {
+  const list = getStoredSponsors();
+  const spon = list.find(s => s.id === sponsorId);
+  if (spon) {
+    spon.clicks_count = (spon.clicks_count || 0) + 1;
+    persistStoredSponsors(list);
+  }
+
   try {
-    if (!isSupabaseConfigured()) {
-      incrementMockSponsorClick(sponsorId);
-      return;
-    }
+    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) return;
     const supabase = getAdminSupabaseClient();
     const { data } = await supabase.from("sponsors").select("clicks_count").eq("id", sponsorId).single();
     if (data) {
       await supabase.from("sponsors").update({ clicks_count: (data.clicks_count || 0) + 1 }).eq("id", sponsorId);
     }
   } catch {
-    incrementMockSponsorClick(sponsorId);
+    // Silencioso
   }
 }
 
 export async function toggleSponsorActive(sponsorId: string, isActive: boolean): Promise<boolean> {
-  // Sempre atualiza o mock local caso esteja em memória
-  const mockSpon = INITIAL_SPONSORS.find(s => s.id === sponsorId);
-  if (mockSpon) {
-    mockSpon.is_active = isActive;
+  // Persistência em arquivo local
+  const list = getStoredSponsors();
+  const spon = list.find(s => s.id === sponsorId);
+  if (spon) {
+    spon.is_active = isActive;
+    persistStoredSponsors(list);
   }
 
   try {
@@ -468,7 +513,7 @@ export async function toggleSponsorActive(sponsorId: string, isActive: boolean):
     const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("sponsors").update({ is_active: isActive }).eq("id", sponsorId);
     if (error) {
-      console.warn("[toggleSponsorActive] Erro no Supabase (usando fallback local):", error.message);
+      console.warn("[toggleSponsorActive] Erro no Supabase (usando persistência local):", error.message);
       return true;
     }
     return true;
@@ -494,30 +539,34 @@ export async function createSponsorAdmin(sponsorData: Partial<Sponsor>): Promise
     created_at: new Date().toISOString(),
   };
 
+  // Grava no arquivo persistente
+  const list = getStoredSponsors();
+  list.unshift(newLocalSponsor);
+  persistStoredSponsors(list);
+
   try {
     if (!isSupabaseConfigured()) {
-      INITIAL_SPONSORS.unshift(newLocalSponsor);
       return true;
     }
     const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("sponsors").insert([sponsorData]);
     if (error) {
-      console.warn("[createSponsorAdmin] Tabela no Supabase inacessível, salvando no fallback local:", error.message);
-      INITIAL_SPONSORS.unshift(newLocalSponsor);
+      console.warn("[createSponsorAdmin] Tabela no Supabase inacessível, gravado no arquivo local:", error.message);
       return true;
     }
     return true;
   } catch {
-    INITIAL_SPONSORS.unshift(newLocalSponsor);
     return true;
   }
 }
 
 export async function updateSponsorAdmin(sponsorId: string, updates: Partial<Sponsor>): Promise<boolean> {
-  // Atualiza no mock em memória se existir
-  const sponIndex = INITIAL_SPONSORS.findIndex(s => s.id === sponsorId);
+  // Grava no arquivo persistente
+  const list = getStoredSponsors();
+  const sponIndex = list.findIndex(s => s.id === sponsorId);
   if (sponIndex !== -1) {
-    INITIAL_SPONSORS[sponIndex] = { ...INITIAL_SPONSORS[sponIndex], ...updates };
+    list[sponIndex] = { ...list[sponIndex], ...updates };
+    persistStoredSponsors(list);
   }
 
   try {
@@ -527,7 +576,7 @@ export async function updateSponsorAdmin(sponsorId: string, updates: Partial<Spo
     const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("sponsors").update(updates).eq("id", sponsorId);
     if (error) {
-      console.warn("[updateSponsorAdmin] Erro no Supabase (mantido no fallback local):", error.message);
+      console.warn("[updateSponsorAdmin] Erro no Supabase (mantido no arquivo local):", error.message);
       return true;
     }
     return true;
@@ -537,11 +586,10 @@ export async function updateSponsorAdmin(sponsorId: string, updates: Partial<Spo
 }
 
 export async function deleteSponsorAdmin(sponsorId: string): Promise<boolean> {
-  // Remove do mock em memória se existir
-  const sponIndex = INITIAL_SPONSORS.findIndex(s => s.id === sponsorId);
-  if (sponIndex !== -1) {
-    INITIAL_SPONSORS.splice(sponIndex, 1);
-  }
+  // Remove do arquivo persistente
+  const list = getStoredSponsors();
+  const filtered = list.filter(s => s.id !== sponsorId);
+  persistStoredSponsors(filtered);
 
   try {
     if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) {
@@ -550,7 +598,7 @@ export async function deleteSponsorAdmin(sponsorId: string): Promise<boolean> {
     const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("sponsors").delete().eq("id", sponsorId);
     if (error) {
-      console.warn("[deleteSponsorAdmin] Erro no Supabase (removido localmente):", error.message);
+      console.warn("[deleteSponsorAdmin] Erro no Supabase (removido do arquivo local):", error.message);
       return true;
     }
     return true;
