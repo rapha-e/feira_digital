@@ -84,7 +84,7 @@ function DashboardContent() {
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   useEffect(() => {
-    fetch("/api/sponsors?placement=painel")
+    fetch("/api/sponsors?placement=painel", { cache: "no-store" })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setSponsors(data);

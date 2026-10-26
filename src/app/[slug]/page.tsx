@@ -7,7 +7,8 @@ import { ProductGrid } from "@/components/ProductGrid";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { FormattedBio } from "@/components/FormattedBio";
 import { InstagramIcon } from "@/components/InstagramIcon";
-import { getBusinessBySlug, recordStoreView } from "@/lib/data";
+import { SponsorBanner } from "@/components/SponsorBanner";
+import { getBusinessBySlug, recordStoreView, getActiveSponsors } from "@/lib/data";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import {
   MapPin,
@@ -70,7 +71,10 @@ export default async function BusinessProfilePage({
   params,
 }: BusinessProfilePageProps) {
   const { slug } = await params;
-  const business = await getBusinessBySlug(slug);
+  const [business, sponsors] = await Promise.all([
+    getBusinessBySlug(slug),
+    getActiveSponsors("home"),
+  ]);
 
   if (!business) {
     notFound();
@@ -294,6 +298,9 @@ export default async function BusinessProfilePage({
             )}
           </div>
         </section>
+
+        {/* Banner de Apoio B2B / Patrocinador Oficial */}
+        <SponsorBanner sponsors={sponsors} placement="home" />
 
         {/* ================= CATÁLOGO DE PRODUTOS ================= */}
         <section className="space-y-3.5 pt-1">

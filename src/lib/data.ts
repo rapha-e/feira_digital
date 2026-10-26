@@ -435,7 +435,7 @@ export async function getActiveSponsors(placement: "home" | "painel" | "all" = "
       return list.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
     }
 
-    const supabase = await createClient();
+    const supabase = getAdminSupabaseClient();
     let query = supabase
       .from("sponsors")
       .select("*")
@@ -486,9 +486,9 @@ export async function recordSponsorView(sponsorId: string): Promise<void> {
   }
 
   try {
-    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) return;
+    if (!isSupabaseConfigured()) return;
     const supabase = getAdminSupabaseClient();
-    const { data } = await supabase.from("sponsors").select("views_count").eq("id", sponsorId).single();
+    const { data } = await supabase.from("sponsors").select("views_count").eq("id", sponsorId).maybeSingle();
     if (data) {
       await supabase.from("sponsors").update({ views_count: (data.views_count || 0) + 1 }).eq("id", sponsorId);
     }
@@ -506,9 +506,9 @@ export async function recordSponsorClick(sponsorId: string): Promise<void> {
   }
 
   try {
-    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) return;
+    if (!isSupabaseConfigured()) return;
     const supabase = getAdminSupabaseClient();
-    const { data } = await supabase.from("sponsors").select("clicks_count").eq("id", sponsorId).single();
+    const { data } = await supabase.from("sponsors").select("clicks_count").eq("id", sponsorId).maybeSingle();
     if (data) {
       await supabase.from("sponsors").update({ clicks_count: (data.clicks_count || 0) + 1 }).eq("id", sponsorId);
     }
@@ -527,14 +527,13 @@ export async function toggleSponsorActive(sponsorId: string, isActive: boolean):
   }
 
   try {
-    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) {
+    if (!isSupabaseConfigured()) {
       return true;
     }
     const supabase = getAdminSupabaseClient();
     const { error } = await supabase.from("sponsors").update({ is_active: isActive }).eq("id", sponsorId);
     if (error) {
       console.warn("[toggleSponsorActive] Erro no Supabase (usando persistência local):", error.message);
-      return true;
     }
     return true;
   } catch {
@@ -543,8 +542,9 @@ export async function toggleSponsorActive(sponsorId: string, isActive: boolean):
 }
 
 export async function createSponsorAdmin(sponsorData: Partial<Sponsor>): Promise<boolean> {
+  const generatedId = sponsorData.id || `spon-${Date.now()}`;
   const newLocalSponsor: Sponsor = {
-    id: `spon-${Date.now()}`,
+    id: generatedId,
     name: sponsorData.name || "Novo Parceiro",
     title: sponsorData.title || "Oferta Especial",
     subtitle: sponsorData.subtitle || "",
@@ -569,7 +569,7 @@ export async function createSponsorAdmin(sponsorData: Partial<Sponsor>): Promise
       return true;
     }
     const supabase = getAdminSupabaseClient();
-    const { error } = await supabase.from("sponsors").insert([sponsorData]);
+    const { error } = await supabase.from("sponsors").insert([{ ...sponsorData, id: generatedId }]);
     if (error) {
       console.warn("[createSponsorAdmin] Tabela no Supabase inacessível, gravado no arquivo local:", error.message);
       return true;
@@ -590,7 +590,7 @@ export async function updateSponsorAdmin(sponsorId: string, updates: Partial<Spo
   }
 
   try {
-    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) {
+    if (!isSupabaseConfigured()) {
       return sponIndex !== -1;
     }
     const supabase = getAdminSupabaseClient();
@@ -612,7 +612,7 @@ export async function deleteSponsorAdmin(sponsorId: string): Promise<boolean> {
   persistStoredSponsors(filtered);
 
   try {
-    if (!isSupabaseConfigured() || sponsorId.startsWith("spon-")) {
+    if (!isSupabaseConfigured()) {
       return true;
     }
     const supabase = getAdminSupabaseClient();

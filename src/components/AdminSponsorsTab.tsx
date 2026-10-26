@@ -56,7 +56,7 @@ export function AdminSponsorsTab() {
   const loadSponsors = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/sponsors?admin=1");
+      const res = await fetch("/api/sponsors?admin=1", { cache: "no-store" });
       const data = await res.json();
       if (Array.isArray(data)) {
         setSponsors(data);
