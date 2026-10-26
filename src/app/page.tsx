@@ -149,9 +149,21 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Footer */}
       <footer className="w-full bg-white border-t border-stone-200 py-4 text-center text-xs text-stone-500">
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <span>© {new Date().getFullYear()} Feira Digital - Vitrine & Conexão Local via WhatsApp</span>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center flex-wrap justify-center gap-3 sm:gap-4">
+            <Link
+              href="/privacidade"
+              className="text-stone-500 hover:text-stone-900 transition-colors"
+            >
+              Privacidade (LGPD)
+            </Link>
+            <Link
+              href="/termos"
+              className="text-stone-500 hover:text-stone-900 transition-colors"
+            >
+              Termos de Uso
+            </Link>
             <Link
               href="/admin"
               className="inline-flex items-center gap-1 text-stone-500 hover:text-stone-900 font-medium transition-colors"
@@ -159,7 +171,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <ShieldCheck className="w-3.5 h-3.5 text-stone-400" />
               <span>Acesso Administrador</span>
             </Link>
-            <span className="text-stone-400">Desenvolvido com foco 100% no MEI</span>
           </div>
         </div>
       </footer>

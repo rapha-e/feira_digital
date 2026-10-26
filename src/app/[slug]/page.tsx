@@ -45,11 +45,24 @@ export async function generateMetadata({
     };
   }
 
+  const title = `${business.name} | Feira Digital`;
+  const description =
+    business.bio ||
+    `Conheça ${business.name} em ${business.neighborhood}, ${business.city}. Cardápio, produtos e pedidos diretos no WhatsApp.`;
+
   return {
-    title: `${business.name} | Feira Digital`,
-    description:
-      business.bio ||
-      `Conheça ${business.name} em ${business.neighborhood}, ${business.city}.`,
+    title,
+    description,
+    alternates: {
+      canonical: `/${business.slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `https://feira-digital-xi.vercel.app/${business.slug}`,
+      images: business.avatar_url ? [{ url: business.avatar_url }] : [],
+      type: "website",
+    },
   };
 }
 
@@ -81,8 +94,40 @@ export default async function BusinessProfilePage({
     ? rawInstagram.replace(/^@/, "").replace(/\/$/, "")
     : null;
 
+  // Schema.org LocalBusiness JSON-LD
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: business.name,
+    description: business.bio || undefined,
+    image: business.avatar_url || undefined,
+    telephone: business.whatsapp,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: business.street_address || undefined,
+      addressLocality: business.neighborhood,
+      addressRegion: business.state || "DF",
+      postalCode: business.cep || undefined,
+      addressCountry: "BR",
+    },
+    geo:
+      business.latitude && business.longitude
+        ? {
+            "@type": "GeoCoordinates",
+            latitude: business.latitude,
+            longitude: business.longitude,
+          }
+        : undefined,
+    url: `https://feira-digital-xi.vercel.app/${business.slug}`,
+    priceRange: "R$",
+  };
+
   return (
     <div className="min-h-screen bg-[#FBFBFA] flex flex-col pb-28 md:pb-16 text-stone-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
       <Header />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5">

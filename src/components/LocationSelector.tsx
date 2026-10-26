@@ -225,12 +225,20 @@ export function LocationSelector() {
 
       {/* Modal de Localização */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="location-dialog-title"
+        >
           <div className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             {/* Cabeçalho do Modal */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
+                <h3
+                  id="location-dialog-title"
+                  className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2"
+                >
                   <Compass className="w-5 h-5 text-emerald-600" />
                   <span>Sua Localização</span>
                 </h3>
@@ -241,6 +249,7 @@ export function LocationSelector() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
+                aria-label="Fechar janela de localização"
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -250,6 +259,7 @@ export function LocationSelector() {
             {/* Mensagem de Feedback */}
             {feedbackMsg && (
               <div
+                role="alert"
                 className={`p-3 rounded-xl text-xs font-medium ${
                   feedbackMsg.type === "success"
                     ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
@@ -269,6 +279,7 @@ export function LocationSelector() {
                 type="button"
                 onClick={handleDetectGPS}
                 disabled={loadingGps}
+                aria-label="Detectar localização atual por satélite GPS"
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
               >
                 {loadingGps ? (
@@ -290,21 +301,24 @@ export function LocationSelector() {
 
             {/* Opção 2: Busca por CEP */}
             <form onSubmit={handleSearchCep} className="space-y-2">
-              <label className="block text-xs font-semibold text-stone-700">
+              <label htmlFor="cep-input-field" className="block text-xs font-semibold text-stone-700">
                 Buscar pelo seu CEP
               </label>
               <div className="flex gap-2">
                 <input
+                  id="cep-input-field"
                   type="text"
                   maxLength={9}
                   value={cepInput}
                   onChange={e => setCepInput(e.target.value)}
                   placeholder="Ex: 70040-010"
+                  aria-label="Digite seu CEP com 8 dígitos"
                   className="flex-1 px-3.5 py-2 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
                 <button
                   type="submit"
                   disabled={loadingCep || !cepInput.trim()}
+                  aria-label="Buscar CEP digitado"
                   className="py-2 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {loadingCep ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
@@ -318,7 +332,7 @@ export function LocationSelector() {
               <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
                 Regiões Populares do DF
               </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Regiões do Distrito Federal">
                 {[
                   "Gama",
                   "Águas Claras",
@@ -332,49 +346,58 @@ export function LocationSelector() {
                   "Santa Maria",
                   "Sobradinho",
                   "Planaltina",
-                ].map(reg => (
-                  <button
-                    key={reg}
-                    type="button"
-                    onClick={() => {
-                      saveAndApplyLocation({
-                        neighborhood: reg,
-                        city: "Brasília",
-                        state: "DF",
-                        label: `${reg}, DF`,
-                        source: "manual",
-                      });
-                    }}
-                    className={`py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                      userLocation?.neighborhood?.toLowerCase() === reg.toLowerCase()
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
-                        : "bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200"
-                    }`}
-                  >
-                    {reg}
-                  </button>
-                ))}
+                ].map(reg => {
+                  const isSelected = userLocation?.neighborhood?.toLowerCase() === reg.toLowerCase();
+                  return (
+                    <button
+                      key={reg}
+                      type="button"
+                      aria-pressed={isSelected}
+                      aria-label={`Selecionar região ${reg}`}
+                      onClick={() => {
+                        saveAndApplyLocation({
+                          neighborhood: reg,
+                          city: "Brasília",
+                          state: "DF",
+                          label: `${reg}, DF`,
+                          source: "manual",
+                        });
+                      }}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
+                          : "bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200"
+                      }`}
+                    >
+                      {reg}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Opção 3: Digitar Bairro / Cidade */}
             <form onSubmit={handleManualNeighborhood} className="space-y-2">
-              <label className="block text-xs font-semibold text-stone-700">
+              <label htmlFor="manual-neighborhood-input" className="block text-xs font-semibold text-stone-700">
                 Ou digite seu Bairro e Cidade
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <input
+                  id="manual-neighborhood-input"
                   type="text"
                   value={manualNeighborhood}
                   onChange={e => setManualNeighborhood(e.target.value)}
                   placeholder="Ex: Asa Norte"
+                  aria-label="Nome do bairro ou Região Administrativa"
                   className="px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
                 <input
+                  id="manual-city-input"
                   type="text"
                   value={manualCity}
                   onChange={e => setManualCity(e.target.value)}
                   placeholder="Cidade (ex: Brasília)"
+                  aria-label="Cidade"
                   className="px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
@@ -397,6 +420,7 @@ export function LocationSelector() {
                 <button
                   type="button"
                   onClick={handleClearLocation}
+                  aria-label="Remover localização ativa"
                   className="text-stone-400 hover:text-red-600 font-medium underline cursor-pointer text-[11px]"
                 >
                   Remover

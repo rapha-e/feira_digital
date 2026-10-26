@@ -113,25 +113,37 @@ export function SearchFilter({
           handleFilter();
         }}
         className="flex flex-col sm:flex-row gap-2.5"
+        role="search"
+        aria-label="Formulário de busca de vitrines e produtos"
       >
         <div className="relative flex-1">
+          <label htmlFor="search-input-query" className="sr-only">
+            Buscar por produto, serviço ou loja
+          </label>
           <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
+            id="search-input-query"
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar por produto, serviço ou loja..."
+            aria-label="Buscar por produto, serviço ou loja"
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-2xs"
           />
         </div>
 
         <div className="relative sm:w-64">
+          <label htmlFor="search-input-neighborhood" className="sr-only">
+            Bairro ou região administrativa do DF
+          </label>
           <MapPin className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
+            id="search-input-neighborhood"
             type="text"
             value={neighborhood}
             onChange={e => setNeighborhood(e.target.value)}
             placeholder="Bairro ou RA (ex: Gama)..."
+            aria-label="Bairro ou região administrativa do DF"
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-2xs"
           />
         </div>
@@ -147,6 +159,7 @@ export function SearchFilter({
           <button
             type="button"
             onClick={clearFilters}
+            aria-label="Limpar todos os filtros de busca"
             className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0"
             title="Limpar todos os filtros"
           >
@@ -157,10 +170,17 @@ export function SearchFilter({
       </form>
 
       {/* Category Pills & Status Filter: Todas as modalidades visíveis */}
-      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-100">
+      <div
+        className="flex flex-wrap items-center gap-2 pt-1 border-t border-stone-100"
+        role="toolbar"
+        aria-label="Filtros de categorias e disponibilidade"
+      >
         {/* Toggle Abertos Agora */}
         <button
           type="button"
+          role="switch"
+          aria-checked={Boolean(currentOnlyOpen)}
+          aria-label="Filtrar comércios abertos no WhatsApp"
           onClick={() => handleFilter({ toggleOnlyOpen: !currentOnlyOpen })}
           className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
             currentOnlyOpen
@@ -181,6 +201,8 @@ export function SearchFilter({
         {/* Todas as Modalidades */}
         <button
           type="button"
+          aria-pressed={!currentCategory}
+          aria-label="Exibir todas as modalidades de comércio"
           onClick={() => handleFilter({ catSlug: "" })}
           className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
             !currentCategory
@@ -199,6 +221,8 @@ export function SearchFilter({
             <button
               key={cat.id}
               type="button"
+              aria-pressed={isActive}
+              aria-label={`Filtrar pela modalidade ${cat.name}`}
               onClick={() => handleFilter({ catSlug: cat.slug })}
               className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
                 isActive
