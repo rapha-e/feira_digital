@@ -216,28 +216,60 @@ function DashboardContent() {
         setCategoryId(INITIAL_CATEGORIES[0].id);
       }
 
-      // Load User Business
-      const { data: bizData } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Load User Business com sincronização e busca por user_id ou e-mail
+      let biz: Business | null = null;
+      let prods: Product[] = [];
 
-      if (bizData) {
-        const b = bizData as Business;
+      try {
+        const syncRes = await fetch("/api/auth/sync-user-business", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, email: user.email }),
+        });
+        const syncData = await syncRes.json();
+        if (syncData.success && syncData.business) {
+          biz = syncData.business as Business;
+          prods = (syncData.products || []) as Product[];
+        }
+      } catch (err) {
+        console.error("Erro na sincronização de loja:", err);
+      }
+
+      // Fallback direto via Supabase caso a rota de API não retorne
+      if (!biz) {
+        const { data: bizData } = await supabase
+          .from("businesses")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        biz = bizData as Business | null;
+
+        if (!biz && user.email) {
+          const { data: byEmail } = await supabase
+            .from("businesses")
+            .select("*")
+            .ilike("email", user.email.trim())
+            .maybeSingle();
+          biz = byEmail as Business | null;
+        }
+      }
+
+      if (biz) {
+        const b = biz;
         setBusiness(b);
-        setName(b.name);
-        setSlug(b.slug);
+        setName(b.name || "");
+        setSlug(b.slug || "");
         setCategoryId(b.category_id || "");
-        setNeighborhood(b.neighborhood);
-        setCity(b.city);
+        setNeighborhood(b.neighborhood || "");
+        setCity(b.city || "Brasília");
         setState(b.state || "DF");
         setCep(b.cep || "");
         setStreetAddress(b.street_address || "");
         setAddressNumber(b.address_number || "");
         setLatitude(b.latitude ?? null);
         setLongitude(b.longitude ?? null);
-        setWhatsapp(b.whatsapp);
+        setWhatsapp(b.whatsapp || "");
         setBio(b.bio || "");
         setAvatarUrl(b.avatar_url || "");
         setIsOpen(b.is_open !== false);
@@ -246,15 +278,19 @@ function DashboardContent() {
         setAcceptsPix(b.accepts_pix !== false);
         setAcceptsCard(Boolean(b.accepts_card));
 
-        // Load Products
-        const { data: prodData } = await supabase
-          .from("products")
-          .select("*")
-          .eq("business_id", b.id)
-          .order("created_at", { ascending: false });
+        if (prods.length > 0) {
+          setProducts(prods);
+        } else {
+          // Load Products
+          const { data: prodData } = await supabase
+            .from("products")
+            .select("*")
+            .eq("business_id", b.id)
+            .order("created_at", { ascending: false });
 
-        if (prodData) {
-          setProducts(prodData as Product[]);
+          if (prodData) {
+            setProducts(prodData as Product[]);
+          }
         }
       } else if (invitedSlug || invitedName) {
         // Pré-preenchimento de convite
