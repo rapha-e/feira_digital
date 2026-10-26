@@ -104,6 +104,7 @@ export default function AdminPage() {
   const [editBizAcceptsPix, setEditBizAcceptsPix] = useState(true);
   const [editBizAcceptsCard, setEditBizAcceptsCard] = useState(false);
   const [savingBiz, setSavingBiz] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
 
   // Estados para Edição de Categoria
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -305,6 +306,37 @@ export default function AdminPage() {
       });
     } finally {
       setSavingBiz(false);
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!editBizEmail) {
+      setNotification({ type: "warning", text: "Informe um e-mail válido para a loja antes de enviar." });
+      return;
+    }
+    setSendingReset(true);
+    try {
+      const res = await fetch("/api/auth/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: editBizEmail.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotification({
+          type: "success",
+          text: `Link de redefinição de acesso disparado com sucesso para ${editBizEmail}!`,
+        });
+      } else {
+        setNotification({
+          type: "error",
+          text: data.message || "Erro ao solicitar recuperação de senha.",
+        });
+      }
+    } catch {
+      setNotification({ type: "error", text: "Falha na comunicação ao enviar e-mail de redefinição." });
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -1770,17 +1802,32 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                     </div>
                   </div>
 
-                  {editBizEmail ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs w-fit">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      Conta Supabase
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full border border-amber-200 w-fit">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                      Sem e-mail vinculado
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {editBizEmail && (
+                      <button
+                        type="button"
+                        onClick={handleSendResetEmail}
+                        disabled={sendingReset}
+                        className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-white hover:bg-stone-50 text-emerald-700 font-semibold text-xs border border-emerald-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                        title="Dispara e-mail seguro para o lojista redefinir sua senha"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${sendingReset ? "animate-spin text-emerald-600" : "text-emerald-600"}`} />
+                        <span>{sendingReset ? "Enviando..." : "Enviar Redefinição de Senha"}</span>
+                      </button>
+                    )}
+
+                    {editBizEmail ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs w-fit">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Conta Supabase
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full border border-amber-200 w-fit">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        Sem e-mail vinculado
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
