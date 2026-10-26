@@ -31,6 +31,7 @@ create table if not exists public.businesses (
     latitude double precision,
     longitude double precision,
     whatsapp text not null,
+    email text,
     avatar_url text,
     bio text,
     -- Status Operacional & Tags (Pilar 2)

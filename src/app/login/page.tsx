@@ -53,24 +53,49 @@ function LoginForm() {
 
     try {
       if (authMode === "forgot") {
-        const origin = typeof window !== "undefined" ? window.location.origin : "https://feira-digital-xi.vercel.app";
-        const { error } = await supabase.auth.resetPasswordForEmail(resolvedEmail, {
-          redirectTo: `${origin}/redefinir-senha`,
+        const res = await fetch("/api/auth/recover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email.trim() }),
         });
-        if (error) throw error;
-        setMessage({
-          type: "success",
-          text: `Link de recuperação enviado para o e-mail cadastrado! Verifique sua caixa de entrada e a pasta de spam.`,
-        });
+        const data = await res.json();
+
+        if (data.success) {
+          setMessage({
+            type: "success",
+            text: data.message || "Link de recuperação enviado com sucesso!",
+          });
+        } else {
+          setMessage({
+            type: "error",
+            text: data.message || "Não foi possível localizar uma conta com esses dados.",
+          });
+        }
       } else if (authMode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: resolvedEmail,
           password,
         });
-        if (error) throw error;
+        if (signUpError) throw signUpError;
+
+        // Tenta auto-login imediato para experiência sem atrito
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: resolvedEmail,
+          password,
+        });
+
+        if (!signInError) {
+          const targetUrl = invitedSlug
+            ? `/painel?invitedSlug=${encodeURIComponent(invitedSlug)}&invitedName=${encodeURIComponent(invitedName || "")}`
+            : "/painel";
+          router.push(targetUrl);
+          router.refresh();
+          return;
+        }
+
         setMessage({
           type: "success",
-          text: "Conta criada com sucesso! Faça login abaixo para acessar o painel.",
+          text: "Conta criada com sucesso! Faça login abaixo para acessar o seu painel.",
         });
         setAuthMode("signin");
       } else {
@@ -117,14 +142,14 @@ function LoginForm() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
           {authMode === "forgot"
-            ? "Recuperar sua Senha"
+            ? "Recuperar Acesso da sua Loja"
             : authMode === "signup"
             ? "Criar conta de Empreendedor"
             : "Acessar Painel do MEI"}
         </h1>
         <p className="text-xs sm:text-sm text-stone-500 mt-1">
           {authMode === "forgot"
-            ? "Digite o e-mail cadastrado na sua loja para receber o link seguro de redefinição."
+            ? "Não lembra seu e-mail ou senha? Digite seu WhatsApp cadastrado, nome da loja ou seu e-mail."
             : authMode === "signup"
             ? "Cadastre sua vitrine e receba pedidos no seu WhatsApp"
             : "Gerencie suas informações e catálogo de produtos"}
@@ -151,7 +176,9 @@ function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            E-mail ou Usuário de Acesso
+            {authMode === "forgot"
+              ? "WhatsApp, Nome da Loja ou E-mail"
+              : "E-mail ou Usuário de Acesso"}
           </label>
           <div className="relative">
             <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -160,7 +187,11 @@ function LoginForm() {
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="seuemail@exemplo.com ou Disruptive"
+              placeholder={
+                authMode === "forgot"
+                  ? "Ex: 61999999999, Doces da Vovó ou seuemail@gmail.com"
+                  : "seuemail@exemplo.com ou Disruptive"
+              }
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
             />
           </div>
@@ -181,7 +212,7 @@ function LoginForm() {
                   }}
                   className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
                 >
-                  Esqueceu sua senha?
+                  Esqueceu seu acesso ou senha?
                 </button>
               )}
             </div>
@@ -209,7 +240,7 @@ function LoginForm() {
             {loading
               ? "Processando..."
               : authMode === "forgot"
-              ? "Enviar Link de Recuperação"
+              ? "Localizar Loja & Enviar Link"
               : authMode === "signup"
               ? "Cadastrar Negócio em 1 Minuto"
               : "Entrar no Painel"}
@@ -220,7 +251,7 @@ function LoginForm() {
 
       <div className="text-center pt-2 border-t border-stone-100 space-y-3">
         {authMode === "forgot" ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => {
@@ -229,11 +260,25 @@ function LoginForm() {
               }}
               className="text-xs sm:text-sm text-stone-600 hover:text-emerald-700 font-semibold block mx-auto cursor-pointer"
             >
-              ← Lembrou sua senha? Fazer login
+              ← Lembrou seus dados? Fazer login
             </button>
-            <p className="text-[11px] text-stone-400">
-              Não lembra qual e-mail usou? Entre em contato pelo WhatsApp do suporte da Feira Digital.
-            </p>
+            <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 text-left space-y-1.5">
+              <span className="text-[11px] font-bold text-stone-700 block">
+                Não tem mais acesso ao e-mail cadastrado?
+              </span>
+              <p className="text-[11px] text-stone-500 leading-relaxed">
+                Nosso time valida a titularidade do seu número de WhatsApp e restaura o acesso da sua vitrine na hora.
+              </p>
+              <a
+                href="https://wa.me/5561992285814?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20para%20recuperar%20o%20acesso%20da%20minha%20loja%20na%20Feira%20Digital."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+              >
+                <span>Falar com o Suporte no WhatsApp</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
         ) : (
           <>

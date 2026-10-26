@@ -655,8 +655,9 @@ function DashboardContent() {
 
     startTransition(async () => {
       try {
-        const payload = {
+        const payload: Record<string, unknown> = {
           user_id: user.id,
+          email: user.email || null,
           name: name.trim(),
           slug: slug.trim(),
           category_id: categoryId || null,
@@ -674,23 +675,42 @@ function DashboardContent() {
         };
 
         if (business) {
-          const { error } = await supabase
+          let updateRes = await supabase
             .from("businesses")
             .update(payload)
             .eq("id", business.id);
 
-          if (error) throw error;
-          setBusiness({ ...business, ...payload });
+          if (updateRes.error && updateRes.error.code === "PGRST204") {
+            const fallbackPayload = { ...payload };
+            delete fallbackPayload.email;
+            updateRes = await supabase
+              .from("businesses")
+              .update(fallbackPayload)
+              .eq("id", business.id);
+          }
+
+          if (updateRes.error) throw updateRes.error;
+          setBusiness({ ...business, ...payload } as Business);
           setNotification({ type: "success", text: "Perfil atualizado com sucesso!" });
         } else {
-          const { data, error } = await supabase
+          let insertRes = await supabase
             .from("businesses")
             .insert(payload)
             .select()
             .single();
 
-          if (error) throw error;
-          setBusiness(data as Business);
+          if (insertRes.error && insertRes.error.code === "PGRST204") {
+            const fallbackPayload = { ...payload };
+            delete fallbackPayload.email;
+            insertRes = await supabase
+              .from("businesses")
+              .insert(fallbackPayload)
+              .select()
+              .single();
+          }
+
+          if (insertRes.error) throw insertRes.error;
+          setBusiness(insertRes.data as Business);
           setNotification({
             type: "success",
             text: "Vitrine criada! Agora você já pode cadastrar seus produtos.",
