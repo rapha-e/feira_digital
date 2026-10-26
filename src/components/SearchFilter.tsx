@@ -59,6 +59,7 @@ export function SearchFilter({
 
   const [query, setQuery] = React.useState(currentQuery || "");
   const [neighborhood, setNeighborhood] = React.useState(currentNeighborhood || "");
+  const [isPending, startTransition] = React.useTransition();
 
   const handleFilter = (options?: { catSlug?: string; toggleOnlyOpen?: boolean }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,13 +92,17 @@ export function SearchFilter({
       params.delete("bairro");
     }
 
-    router.push(`/?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/?${params.toString()}`);
+    });
   };
 
   const clearFilters = () => {
     setQuery("");
     setNeighborhood("");
-    router.push("/");
+    startTransition(() => {
+      router.push("/");
+    });
   };
 
   const hasActiveFilters = Boolean(

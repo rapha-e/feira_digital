@@ -20,9 +20,10 @@ import { WhatsAppButton } from "./WhatsAppButton";
 
 interface BusinessCardProps {
   business: BusinessWithProducts;
+  isPriority?: boolean;
 }
 
-export function BusinessCard({ business }: BusinessCardProps) {
+export function BusinessCard({ business, isPriority = false }: BusinessCardProps) {
   const whatsappUrl = buildWhatsAppLink(business.whatsapp, business.name);
   const isOpen = business.is_open !== false;
   const isFeatured = Boolean(business.is_featured);
@@ -43,6 +44,7 @@ export function BusinessCard({ business }: BusinessCardProps) {
               src={business.avatar_url}
               alt={business.name}
               fill
+              priority={isPriority}
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               sizes="72px"
             />

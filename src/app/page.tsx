@@ -139,8 +139,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {businesses.map(business => (
-                <BusinessCard key={business.id} business={business} />
+              {businesses.map((business, index) => (
+                <BusinessCard
+                  key={business.id}
+                  business={business}
+                  isPriority={index < 2}
+                />
               ))}
             </div>
           )}

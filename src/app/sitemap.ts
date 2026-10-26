@@ -29,12 +29,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const businesses = await getBusinesses();
-    const dynamicEntries: MetadataRoute.Sitemap = businesses.map(b => ({
-      url: `${baseUrl}/${b.slug}`,
-      lastModified: b.created_at ? new Date(b.created_at) : new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
-    }));
+    const dynamicEntries: MetadataRoute.Sitemap = businesses.map(b => {
+      let latestDate = b.created_at ? new Date(b.created_at) : new Date();
+      if (b.products && b.products.length > 0) {
+        for (const p of b.products) {
+          if (p.created_at) {
+            const pDate = new Date(p.created_at);
+            if (pDate > latestDate) {
+              latestDate = pDate;
+            }
+          }
+        }
+      }
+      return {
+        url: `${baseUrl}/${b.slug}`,
+        lastModified: latestDate,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      };
+    });
 
     return [...staticEntries, ...dynamicEntries];
   } catch (error) {

@@ -41,11 +41,11 @@ export async function generateMetadata({
 
   if (!business) {
     return {
-      title: "Negócio não encontrado - Feira Digital",
+      title: "Negócio não encontrado",
     };
   }
 
-  const title = `${business.name} | Feira Digital`;
+  const title = business.name;
   const description =
     business.bio ||
     `Conheça ${business.name} em ${business.neighborhood}, ${business.city}. Cardápio, produtos e pedidos diretos no WhatsApp.`;
@@ -57,7 +57,7 @@ export async function generateMetadata({
       canonical: `/${business.slug}`,
     },
     openGraph: {
-      title,
+      title: `${business.name} | Feira Digital`,
       description,
       url: `https://feira-digital-xi.vercel.app/${business.slug}`,
       images: business.avatar_url ? [{ url: business.avatar_url }] : [],
