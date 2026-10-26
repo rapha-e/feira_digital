@@ -43,6 +43,9 @@ export function formatDistance(distanceKm: number | null | undefined): string | 
   if (distanceKm === null || distanceKm === undefined || isNaN(distanceKm)) {
     return null;
   }
+  if (distanceKm <= 0.1) {
+    return "No seu bairro";
+  }
   if (distanceKm < 1) {
     const meters = Math.round(distanceKm * 1000);
     return `${meters} m`;
@@ -166,6 +169,7 @@ export async function geocodeAddress(
   } catch {
     // Ignora
   }
+
   return null;
 }
 
@@ -249,9 +253,10 @@ export const DF_REGIONS_COORDINATES: Record<string, { lat: number; lng: number }
   "são sebastião": { lat: -15.8980, lng: -47.7680 },
   "paranoa": { lat: -15.7700, lng: -47.7800 },
   "paranoá": { lat: -15.7700, lng: -47.7800 },
-  "itapoa": { lat: -15.7700, lng: -47.7800 },
-  "itapoã": { lat: -15.7700, lng: -47.7800 },
-  "del lago": { lat: -15.7700, lng: -47.7800 },
+  "itapoa": { lat: -15.7480, lng: -47.7650 },
+  "itapoã": { lat: -15.7480, lng: -47.7650 },
+  "del lago": { lat: -15.7480, lng: -47.7650 },
+  "del lago ii": { lat: -15.7480, lng: -47.7650 },
   "sobradinho": { lat: -15.6530, lng: -47.7890 },
   "sobradinho ii": { lat: -15.6300, lng: -47.8100 },
   "planaltina": { lat: -15.6170, lng: -47.6500 },
@@ -288,20 +293,26 @@ export function resolveDfRegionCoordinates(neighborhood?: string): { lat: number
 }
 
 /**
- * RF03: Algoritmo de Proximidade Regional Progressiva
- * Regra: Quando uma localização for informada (ex: Gama), as lojas daquela localidade
- * aparecem PRIMEIRO, seguidas das lojas mais próximas de todas as modalidades.
+ * RF03: Algoritmo de Proximidade Regional e Destaques
+ * Ordem estrita solicitada:
+ * 1º: Destaques da cidade/região selecionada (ordenados por menor distância)
+ * 2º: Destaques das outras regiões (ordenados por menor distância)
+ * 3º: Lojas sem destaque da região selecionada (ordenadas por menor distância)
+ * 4º: Lojas sem destaque das outras regiões (ordenadas por menor distância)
+ *
+ * Em todos os 4 grupos, obedece sempre à geolocalização (Distância) do menor para o maior.
  */
 export function sortBusinessesByProximity(
   businesses: BusinessWithProducts[],
   userLocation?: UserLocation | null
 ): BusinessWithProducts[] {
   if (!userLocation || (!userLocation.lat && !userLocation.lng && !userLocation.neighborhood)) {
-    // Sem localização informada: destaca os patrocinados e depois ordem padrão
+    // Sem localização informada: destaca os patrocinados e depois ordem alfabética estável
     return [...businesses].sort((a, b) => {
       const aFeatured = a.is_featured ? 1 : 0;
       const bFeatured = b.is_featured ? 1 : 0;
-      return bFeatured - aFeatured;
+      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+      return (a.name || "").localeCompare(b.name || "");
     });
   }
 
@@ -309,10 +320,12 @@ export function sortBusinessesByProximity(
   let userLat = userLocation.lat;
   let userLng = userLocation.lng;
   const rawNeighborhood = userLocation.neighborhood?.trim() || "";
-  const normUserNeighborhood = normalizeGeoText(rawNeighborhood);
+  // Pega o nome do bairro limpo (removendo cidade ou DF se houver, ex: "Paranoá, Brasília" -> "paranoa")
+  const primaryUserNeighborhood = rawNeighborhood.split(",")[0].trim();
+  const normUserNeighborhood = normalizeGeoText(primaryUserNeighborhood);
 
-  if ((userLat === undefined || userLng === undefined) && rawNeighborhood) {
-    const resolvedCoords = resolveDfRegionCoordinates(rawNeighborhood);
+  if ((userLat === undefined || userLng === undefined) && primaryUserNeighborhood) {
+    const resolvedCoords = resolveDfRegionCoordinates(primaryUserNeighborhood);
     if (resolvedCoords) {
       userLat = resolvedCoords.lat;
       userLng = resolvedCoords.lng;
@@ -321,7 +334,10 @@ export function sortBusinessesByProximity(
 
   // 2. Calcular distância de cada estabelecimento
   const withDistance = businesses.map(b => {
-    const normBizNeighborhood = normalizeGeoText(b.neighborhood || "");
+    const rawBizNeighborhood = b.neighborhood || "";
+    const primaryBizNeighborhood = rawBizNeighborhood.split(",")[0].trim();
+    const normBizNeighborhood = normalizeGeoText(primaryBizNeighborhood);
+
     const isLocal = Boolean(
       normUserNeighborhood &&
         (normBizNeighborhood.includes(normUserNeighborhood) ||
@@ -344,15 +360,15 @@ export function sortBusinessesByProximity(
 
       if (bizLat !== null && bizLat !== undefined && bizLng !== null && bizLng !== undefined) {
         calculatedDistance = calculateDistanceKm(userLat, userLng, bizLat, bizLng);
-        // Se for do mesmo bairro, garante que mostre como muito próximo (< 1km)
-        if (isLocal && calculatedDistance > 3.0) {
-          calculatedDistance = 0.8;
+        // Se for da mesma localidade e deu 0 (mesmas coordenadas de centro), define 0.3km
+        if (isLocal && calculatedDistance === 0) {
+          calculatedDistance = 0.3;
         }
       } else if (isLocal) {
-        calculatedDistance = 0.5;
+        calculatedDistance = 0.3;
       }
     } else if (isLocal) {
-      calculatedDistance = 0.5;
+      calculatedDistance = 0.3;
     }
 
     return {
@@ -362,44 +378,39 @@ export function sortBusinessesByProximity(
     };
   });
 
-  // 3. Ordenação Estruturada:
-  // - 1º: Lojas da LOCALIDADE SELECIONADA primeiro (com Destaques da localidade no topo)
-  // - 2º: Lojas das outras localidades mais próximas em ordem crescente de distância
+  // 3. Função de Classificação de Grupo:
+  // Grupo 1: Destaque da cidade selecionada
+  // Grupo 2: Destaque de outras regiões
+  // Grupo 3: Sem destaque da cidade selecionada
+  // Grupo 4: Sem destaque de outras regiões
+  const getTier = (biz: { is_featured?: boolean; _isLocalMatch?: boolean }): number => {
+    const isFeatured = Boolean(biz.is_featured);
+    const isLocal = Boolean(biz._isLocalMatch);
+
+    if (isFeatured && isLocal) return 1;
+    if (isFeatured && !isLocal) return 2;
+    if (!isFeatured && isLocal) return 3;
+    return 4;
+  };
+
   return withDistance.sort((a, b) => {
-    const aLocal = a._isLocalMatch ? 1 : 0;
-    const bLocal = b._isLocalMatch ? 1 : 0;
+    const tierA = getTier(a);
+    const tierB = getTier(b);
 
-    // Regra prioritária: localidade primeiro
-    if (aLocal !== bLocal) {
-      return bLocal - aLocal;
+    if (tierA !== tierB) {
+      return tierA - tierB;
     }
 
-    // Se ambos forem da localidade selecionada
-    if (aLocal && bLocal) {
-      const aFeatured = a.is_featured ? 1 : 0;
-      const bFeatured = b.is_featured ? 1 : 0;
-      if (aFeatured !== bFeatured) {
-        return bFeatured - aFeatured;
-      }
-      return (a.distance_km ?? 0.5) - (b.distance_km ?? 0.5);
+    // Dentro do mesmo grupo, sempre ordena do menor para o maior em distância
+    const distA = a.distance_km ?? 999;
+    const distB = b.distance_km ?? 999;
+
+    if (distA !== distB) {
+      return distA - distB;
     }
 
-    // Se ambos forem de fora da localidade, ordena estritamente pela proximidade (menor km primeiro)
-    const aDist = a.distance_km ?? 999;
-    const bDist = b.distance_km ?? 999;
-
-    if (Math.abs(aDist - bDist) > 0.5) {
-      return aDist - bDist;
-    }
-
-    // Se a distância for muito similar (empate técnico de região vizinha), destaque patrocinado desempata
-    const aFeatured = a.is_featured ? 1 : 0;
-    const bFeatured = b.is_featured ? 1 : 0;
-    if (aFeatured !== bFeatured) {
-      return bFeatured - aFeatured;
-    }
-
-    return aDist - bDist;
+    return (a.name || "").localeCompare(b.name || "");
   });
 }
+
 

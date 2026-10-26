@@ -2834,16 +2834,16 @@ function DashboardContent() {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Chave Pix Copia e Cola:
+                  Chave Pix Copia e Cola (Chave Aleatória):
                 </label>
                 <div className="flex items-center gap-1.5 p-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-mono text-stone-700">
-                  <span className="truncate flex-1 text-left">
-                    pix@feiradigital.com.br
+                  <span className="truncate flex-1 text-left select-all">
+                    9cdcc031-fb3e-4c39-83f3-8bca8b25b61f
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText("pix@feiradigital.com.br");
+                      navigator.clipboard.writeText("9cdcc031-fb3e-4c39-83f3-8bca8b25b61f");
                       setIsPixCopied(true);
                       setTimeout(() => setIsPixCopied(false), 2500);
                     }}
