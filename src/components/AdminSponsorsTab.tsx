@@ -318,7 +318,7 @@ export function AdminSponsorsTab() {
 
   const sqlCreateScript = `-- Copie e execute este script no SQL Editor do seu Supabase Dashboard:
 CREATE TABLE IF NOT EXISTS public.sponsors (
-    id uuid primary key default gen_random_uuid(),
+    id text primary key default gen_random_uuid()::text,
     name text not null,
     title text not null,
     subtitle text,
@@ -337,16 +337,25 @@ CREATE TABLE IF NOT EXISTS public.sponsors (
 
 ALTER TABLE public.sponsors ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Visualização pública de anunciantes ativos"
+CREATE POLICY "Permitir leitura pública de sponsors"
 ON public.sponsors FOR SELECT
-TO anon, authenticated
-USING (is_active = true);
+TO public, anon, authenticated
+USING (true);
 
-CREATE POLICY IF NOT EXISTS "Gerenciamento total de anunciantes para service_role"
-ON public.sponsors FOR ALL
-TO service_role
-USING (true)
+CREATE POLICY "Permitir inserção de sponsors"
+ON public.sponsors FOR INSERT
+TO public, anon, authenticated
 WITH CHECK (true);
+
+CREATE POLICY "Permitir atualização de sponsors"
+ON public.sponsors FOR UPDATE
+TO public, anon, authenticated
+USING (true);
+
+CREATE POLICY "Permitir exclusão de sponsors"
+ON public.sponsors FOR DELETE
+TO public, anon, authenticated
+USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_sponsors_active ON public.sponsors (placement, is_active, created_at desc);`;
 

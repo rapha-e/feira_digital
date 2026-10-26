@@ -381,12 +381,20 @@ export async function deleteProductAdmin(id: string): Promise<boolean> {
 import fs from "fs";
 import path from "path";
 
-const SPONSORS_FILE = path.join(process.cwd(), "src", "data", "sponsors.json");
-
 function getStoredSponsors(): Sponsor[] {
   try {
-    if (fs.existsSync(SPONSORS_FILE)) {
-      const content = fs.readFileSync(SPONSORS_FILE, "utf-8");
+    // 1. Tenta ler de /tmp se existir (Vercel e Serverless)
+    const tmpPath = path.join("/tmp", "sponsors.json");
+    if (fs.existsSync(tmpPath)) {
+      const content = fs.readFileSync(tmpPath, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as Sponsor[];
+    }
+
+    // 2. Tenta ler do diretório da aplicação
+    const localPath = path.join(process.cwd(), "src", "data", "sponsors.json");
+    if (fs.existsSync(localPath)) {
+      const content = fs.readFileSync(localPath, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) return parsed as Sponsor[];
     }
@@ -397,14 +405,26 @@ function getStoredSponsors(): Sponsor[] {
 }
 
 function persistStoredSponsors(list: Sponsor[]): void {
+  // Sincroniza o array estático em memória
+  INITIAL_SPONSORS.length = 0;
+  INITIAL_SPONSORS.push(...list);
+
+  // Grava no arquivo local do projeto (para persistir entre builds e dev)
   try {
-    const dir = path.dirname(SPONSORS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(SPONSORS_FILE, JSON.stringify(list, null, 2), "utf-8");
-  } catch (err) {
-    console.error("[persistStoredSponsors] Erro ao salvar arquivo de sponsors:", err);
+    const localPath = path.join(process.cwd(), "src", "data", "sponsors.json");
+    const dir = path.dirname(localPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(localPath, JSON.stringify(list, null, 2), "utf-8");
+  } catch {
+    // Ignora se o filesystem for read-only (ex: Vercel)
+  }
+
+  // Grava em /tmp (sempre gravável na Vercel e sistemas Linux)
+  try {
+    const tmpPath = path.join("/tmp", "sponsors.json");
+    fs.writeFileSync(tmpPath, JSON.stringify(list, null, 2), "utf-8");
+  } catch {
+    // Silencioso
   }
 }
 
@@ -427,12 +447,12 @@ export async function getActiveSponsors(placement: "home" | "painel" | "all" = "
 
     const { data, error } = await query.order("created_at", { ascending: false });
 
-    // Se o Supabase responder com sucesso e encontrar dados na tabela
-    if (!error && data && data.length > 0) {
+    // Se o Supabase respondeu sem erro (tabela existe e foi consultada com sucesso)
+    if (!error && data) {
       return data as Sponsor[];
     }
 
-    // Fallback durável para o arquivo persistente
+    // Se a tabela ainda não existir no Supabase, usa o fallback persistente
     const list = getStoredSponsors();
     return list.filter(s => s.is_active && (s.placement === placement || s.placement === "all"));
   } catch {
@@ -448,7 +468,7 @@ export async function getAllSponsorsAdmin(): Promise<Sponsor[]> {
     }
     const supabase = getAdminSupabaseClient();
     const { data, error } = await supabase.from("sponsors").select("*").order("created_at", { ascending: false });
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       return data as Sponsor[];
     }
     return getStoredSponsors();

@@ -284,8 +284,8 @@ with check (true);
 -- 10. Tabela: sponsors (Publicidade B2B, Banners e Parceiros Oficiais)
 -- ============================================================
 create table if not exists public.sponsors (
-    id uuid primary key default gen_random_uuid(),
-    name text not null,                     -- Ex: "Atacadão das Embalagens", "Stone Maquininhas"
+    id text primary key default gen_random_uuid()::text,
+    name text not null,                     -- Ex: "Stone Maquininhas", "Contabilidade MEI"
     title text not null,                    -- Ex: "Embalagens delivery com 15% OFF para MEIs"
     subtitle text,                          -- Ex: "Frete grátis em todo o DF para pedidos no WhatsApp"
     image_url text,                         -- Logo ou arte visual
@@ -303,16 +303,26 @@ create table if not exists public.sponsors (
 
 alter table public.sponsors enable row level security;
 
-create policy "Visualização pública de anunciantes ativos"
+-- Políticas de RLS permitindo leitura e gerenciamento completo
+create policy "Permitir leitura pública de sponsors"
 on public.sponsors for select
-to anon, authenticated
-using (is_active = true);
+to public, anon, authenticated
+using (true);
 
-create policy "Gerenciamento total de anunciantes para service_role"
-on public.sponsors for all
-to service_role
-using (true)
+create policy "Permitir inserção de sponsors"
+on public.sponsors for insert
+to public, anon, authenticated
 with check (true);
+
+create policy "Permitir atualização de sponsors"
+on public.sponsors for update
+to public, anon, authenticated
+using (true);
+
+create policy "Permitir exclusão de sponsors"
+on public.sponsors for delete
+to public, anon, authenticated
+using (true);
 
 create index if not exists idx_sponsors_active on public.sponsors (placement, is_active, created_at desc);
 
