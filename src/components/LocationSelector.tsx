@@ -43,6 +43,17 @@ export function LocationSelector() {
     setMounted(true);
   }, []);
 
+  // Bloqueio de rolagem do fundo (body scroll lock) enquanto o modal estiver aberto
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
+
   // Controle de Escape global e ciclo de foco (Acessibilidade WCAG 2.1 / LBI)
   useEffect(() => {
     if (isOpen) {
