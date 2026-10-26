@@ -298,7 +298,7 @@ export function LocationSelector() {
       {/* Modal de Localização */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in"
           onClick={e => {
             if (e.target === e.currentTarget) setIsOpen(false);
           }}
@@ -310,10 +310,10 @@ export function LocationSelector() {
             aria-labelledby="location-dialog-title"
             tabIndex={-1}
             onKeyDown={handleDialogKeyDown}
-            className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-200 focus:outline-none"
+            className="bg-white rounded-3xl max-w-md w-full border border-stone-200 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden animate-in zoom-in-95 duration-200 focus:outline-none my-auto"
           >
-            {/* Cabeçalho do Modal */}
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3.5">
+            {/* Cabeçalho Fixo do Modal */}
+            <div className="flex items-center justify-between border-b border-stone-100 p-4 sm:p-5 shrink-0 bg-white">
               <div>
                 <h3
                   id="location-dialog-title"
@@ -337,179 +337,182 @@ export function LocationSelector() {
               </button>
             </div>
 
-            {/* Mensagem de Feedback */}
-            {feedbackMsg && (
-              <div
-                role="alert"
-                className={`p-3 rounded-xl text-xs font-medium ${
-                  feedbackMsg.type === "success"
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                    : "bg-red-50 text-red-800 border border-red-200"
-                }`}
-              >
-                {feedbackMsg.text}
-              </div>
-            )}
-
-            {/* Opção 1: GPS Automático */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-stone-800 block">
-                Localização Rápida por GPS
-              </span>
-              <button
-                type="button"
-                onClick={handleDetectGPS}
-                disabled={loadingGps}
-                aria-label="Detectar localização atual por satélite GPS"
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
-              >
-                {loadingGps ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Navigation className="w-4 h-4 fill-white" />
-                )}
-                <span>{loadingGps ? "Detectando satélite..." : "Usar meu GPS atual"}</span>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-stone-200" />
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
-                ou informe manualmente
-              </span>
-              <div className="flex-1 h-px bg-stone-200" />
-            </div>
-
-            {/* Opção 2: Busca por CEP */}
-            <form onSubmit={handleSearchCep} className="space-y-2">
-              <label htmlFor="cep-input-field" className="block text-xs font-semibold text-stone-700">
-                Buscar pelo seu CEP
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="cep-input-field"
-                  type="text"
-                  maxLength={9}
-                  value={cepInput}
-                  onChange={e => setCepInput(e.target.value)}
-                  placeholder="Ex: 70040-010"
-                  aria-label="Digite seu CEP com 8 dígitos"
-                  className="flex-1 px-3.5 py-2 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
-                <button
-                  type="submit"
-                  disabled={loadingCep || !cepInput.trim()}
-                  aria-label="Buscar CEP digitado"
-                  className="py-2 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            {/* Conteúdo Rolável (GPS, CEP, Regiões Populares, Bairro/Cidade) */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 overscroll-contain">
+              {/* Mensagem de Feedback */}
+              {feedbackMsg && (
+                <div
+                  role="alert"
+                  className={`p-3 rounded-xl text-xs font-medium ${
+                    feedbackMsg.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-red-50 text-red-800 border border-red-200"
+                  }`}
                 >
-                  {loadingCep ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                  <span>Buscar</span>
+                  {feedbackMsg.text}
+                </div>
+              )}
+
+              {/* Opção 1: GPS Automático */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-stone-800 block">
+                  Localização Rápida por GPS
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDetectGPS}
+                  disabled={loadingGps}
+                  aria-label="Detectar localização atual por satélite GPS"
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  {loadingGps ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Navigation className="w-4 h-4 fill-white" />
+                  )}
+                  <span>{loadingGps ? "Detectando satélite..." : "Usar meu GPS atual"}</span>
                 </button>
               </div>
-            </form>
 
-            {/* Atalhos Rápidos por Região Administrativa do DF */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
-                Regiões Populares do DF
-              </span>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Regiões do Distrito Federal">
-                {[
-                  "Gama",
-                  "Águas Claras",
-                  "Taguatinga",
-                  "Ceilândia",
-                  "Guará",
-                  "Samambaia",
-                  "Asa Sul",
-                  "Asa Norte",
-                  "Sudoeste",
-                  "Santa Maria",
-                  "Sobradinho",
-                  "Planaltina",
-                ].map(reg => {
-                  const isSelected = userLocation?.neighborhood?.toLowerCase() === reg.toLowerCase();
-                  return (
-                    <button
-                      key={reg}
-                      type="button"
-                      aria-pressed={isSelected}
-                      aria-label={`Selecionar região ${reg}`}
-                      onClick={() => {
-                        saveAndApplyLocation({
-                          neighborhood: reg,
-                          city: "Brasília",
-                          state: "DF",
-                          label: `${reg}, DF`,
-                          source: "manual",
-                        });
-                      }}
-                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
-                          : "bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200"
-                      }`}
-                    >
-                      {reg}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-stone-200" />
+                <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                  ou informe manualmente
+                </span>
+                <div className="flex-1 h-px bg-stone-200" />
               </div>
+
+              {/* Opção 2: Busca por CEP */}
+              <form onSubmit={handleSearchCep} className="space-y-1.5">
+                <label htmlFor="cep-input-field" className="block text-xs font-semibold text-stone-700">
+                  Buscar pelo seu CEP
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="cep-input-field"
+                    type="text"
+                    maxLength={9}
+                    value={cepInput}
+                    onChange={e => setCepInput(e.target.value)}
+                    placeholder="Ex: 70040-010"
+                    aria-label="Digite seu CEP com 8 dígitos"
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={loadingCep || !cepInput.trim()}
+                    aria-label="Buscar CEP digitado"
+                    className="py-2 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {loadingCep ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                    <span>Buscar</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Atalhos Rápidos por Região Administrativa do DF */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                  Regiões Populares do DF
+                </span>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Regiões do Distrito Federal">
+                  {[
+                    "Gama",
+                    "Águas Claras",
+                    "Taguatinga",
+                    "Ceilândia",
+                    "Guará",
+                    "Samambaia",
+                    "Asa Sul",
+                    "Asa Norte",
+                    "Sudoeste",
+                    "Santa Maria",
+                    "Sobradinho",
+                    "Planaltina",
+                  ].map(reg => {
+                    const isSelected = userLocation?.neighborhood?.toLowerCase() === reg.toLowerCase();
+                    return (
+                      <button
+                        key={reg}
+                        type="button"
+                        aria-pressed={isSelected}
+                        aria-label={`Selecionar região ${reg}`}
+                        onClick={() => {
+                          saveAndApplyLocation({
+                            neighborhood: reg,
+                            city: "Brasília",
+                            state: "DF",
+                            label: `${reg}, DF`,
+                            source: "manual",
+                          });
+                        }}
+                        className={`py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-bold"
+                            : "bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200"
+                        }`}
+                      >
+                        {reg}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Opção 3: Digitar Bairro / Cidade */}
+              <form onSubmit={handleManualNeighborhood} className="space-y-2">
+                <span className="block text-xs font-semibold text-stone-700">
+                  Ou digite seu Bairro e Cidade
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label
+                      htmlFor="manual-neighborhood-input"
+                      className="block text-[11px] font-medium text-stone-600 mb-1"
+                    >
+                      Bairro / RA
+                    </label>
+                    <input
+                      id="manual-neighborhood-input"
+                      type="text"
+                      value={manualNeighborhood}
+                      onChange={e => setManualNeighborhood(e.target.value)}
+                      placeholder="Ex: Asa Norte"
+                      aria-label="Bairro ou Região Administrativa"
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="manual-city-input"
+                      className="block text-[11px] font-medium text-stone-600 mb-1"
+                    >
+                      Cidade
+                    </label>
+                    <input
+                      id="manual-city-input"
+                      type="text"
+                      value={manualCity}
+                      onChange={e => setManualCity(e.target.value)}
+                      placeholder="Cidade (ex: Brasília)"
+                      aria-label="Cidade"
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!manualNeighborhood.trim()}
+                  className="w-full py-2 px-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 disabled:opacity-50 text-stone-800 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  Aplicar Bairro
+                </button>
+              </form>
             </div>
 
-            {/* Opção 3: Digitar Bairro / Cidade */}
-            <form onSubmit={handleManualNeighborhood} className="space-y-2">
-              <span className="block text-xs font-semibold text-stone-700">
-                Ou digite seu Bairro e Cidade
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label
-                    htmlFor="manual-neighborhood-input"
-                    className="block text-[11px] font-medium text-stone-600 mb-1"
-                  >
-                    Bairro / RA
-                  </label>
-                  <input
-                    id="manual-neighborhood-input"
-                    type="text"
-                    value={manualNeighborhood}
-                    onChange={e => setManualNeighborhood(e.target.value)}
-                    placeholder="Ex: Asa Norte"
-                    aria-label="Bairro ou Região Administrativa"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="manual-city-input"
-                    className="block text-[11px] font-medium text-stone-600 mb-1"
-                  >
-                    Cidade
-                  </label>
-                  <input
-                    id="manual-city-input"
-                    type="text"
-                    value={manualCity}
-                    onChange={e => setManualCity(e.target.value)}
-                    placeholder="Cidade (ex: Brasília)"
-                    aria-label="Cidade"
-                    className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={!manualNeighborhood.trim()}
-                className="w-full py-2 px-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 disabled:opacity-50 text-stone-800 font-semibold text-xs transition-colors cursor-pointer"
-              >
-                Aplicar Bairro
-              </button>
-            </form>
-
-            {/* Localização Ativa & Botão Limpar */}
+            {/* Rodapé Fixo: Localização Ativa & Botão Limpar */}
             {userLocation && (
-              <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
+              <div className="p-3 sm:px-5 bg-stone-50 border-t border-stone-100 flex items-center justify-between text-xs shrink-0">
                 <div className="flex items-center gap-1.5 text-stone-600 truncate">
                   <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span className="truncate">Ativa: <strong>{userLocation.label}</strong></span>
@@ -518,7 +521,7 @@ export function LocationSelector() {
                   type="button"
                   onClick={handleClearLocation}
                   aria-label="Remover localização ativa"
-                  className="text-stone-400 hover:text-red-600 font-medium underline cursor-pointer text-[11px]"
+                  className="text-stone-400 hover:text-red-600 font-medium underline cursor-pointer text-[11px] shrink-0"
                 >
                   Remover
                 </button>
