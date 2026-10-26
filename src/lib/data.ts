@@ -150,7 +150,7 @@ export async function recordWhatsAppClick(businessId: string): Promise<void> {
 export async function getAllBusinessesAdmin(): Promise<BusinessWithProducts[]> {
   try {
     if (!isSupabaseConfigured()) {
-      return [];
+      return [...INITIAL_BUSINESSES];
     }
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -161,6 +161,28 @@ export async function getAllBusinessesAdmin(): Promise<BusinessWithProducts[]> {
     if (error || !data) {
       return [];
     }
+
+    // Tenta enriquecer com emails de auth.users via service role do admin
+    try {
+      const adminClient = getAdminSupabaseClient();
+      const { data: usersData, error: usersError } = await adminClient.auth.admin.listUsers();
+      if (!usersError && usersData?.users) {
+        const emailMap = new Map<string, string>();
+        usersData.users.forEach(u => {
+          if (u.id && u.email) {
+            emailMap.set(u.id, u.email);
+          }
+        });
+
+        return (data as BusinessWithProducts[]).map(biz => ({
+          ...biz,
+          email: biz.email || emailMap.get(biz.user_id) || null,
+        }));
+      }
+    } catch {
+      // Caso não tenha permissão de admin.listUsers, prossegue com os dados nativos
+    }
+
     return data as BusinessWithProducts[];
   } catch {
     return [];
@@ -210,6 +232,7 @@ export async function updateBusinessAdmin(
       delete fallbackUpdates.address_number;
       delete fallbackUpdates.state;
       delete fallbackUpdates.cnpj;
+      delete fallbackUpdates.email;
 
       const fallbackRes = await supabase
         .from("businesses")

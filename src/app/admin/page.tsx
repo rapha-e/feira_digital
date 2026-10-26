@@ -44,6 +44,7 @@ import {
   Server,
   ArrowRight,
   RefreshCw,
+  Mail,
 } from "lucide-react";
 
 const ADMIN_USERNAMES = ["suporte", "suporte@feiradigital.com"];
@@ -85,6 +86,7 @@ export default function AdminPage() {
   const [editBizName, setEditBizName] = useState("");
   const [editBizSlug, setEditBizSlug] = useState("");
   const [editBizWhatsapp, setEditBizWhatsapp] = useState("");
+  const [editBizEmail, setEditBizEmail] = useState("");
   const [editBizCategoryId, setEditBizCategoryId] = useState("");
   const [editBizNeighborhood, setEditBizNeighborhood] = useState("");
   const [editBizCity, setEditBizCity] = useState("Brasília");
@@ -223,6 +225,7 @@ export default function AdminPage() {
     setEditBizName(biz.name);
     setEditBizSlug(biz.slug);
     setEditBizWhatsapp(biz.whatsapp);
+    setEditBizEmail(biz.email || "");
     setEditBizCategoryId(biz.category_id || "");
     setEditBizNeighborhood(biz.neighborhood);
     setEditBizCity(biz.city);
@@ -251,6 +254,7 @@ export default function AdminPage() {
         name: editBizName.trim(),
         slug: editBizSlug.trim().toLowerCase(),
         whatsapp: editBizWhatsapp.replace(/\D/g, ""),
+        email: editBizEmail.trim() || null,
         category_id: editBizCategoryId || null,
         neighborhood: editBizNeighborhood.trim(),
         city: editBizCity.trim(),
@@ -1008,9 +1012,15 @@ export default function AdminPage() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-stone-400 font-mono">
+                              <span className="text-[10px] text-stone-400 font-mono block">
                                 /{biz.slug}
                               </span>
+                              {biz.email && (
+                                <span className="text-[10px] text-stone-500 flex items-center gap-1 mt-0.5 max-w-[200px] truncate" title={biz.email}>
+                                  <Mail className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+                                  <span className="truncate">{biz.email}</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1744,6 +1754,35 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
               </div>
 
               <form onSubmit={handleSaveBusiness} className="space-y-4">
+                {/* Banner / Card de Visualização do E-mail Cadastrado */}
+                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                        E-mail Cadastrado (Conta de Acesso & Recuperação)
+                      </span>
+                      <strong className="text-xs sm:text-sm font-semibold text-stone-900 block select-all">
+                        {editBizEmail || "Nenhum e-mail vinculado"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {editBizEmail ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs w-fit">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Conta Supabase
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full border border-amber-200 w-fit">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                      Sem e-mail vinculado
+                    </span>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1">
@@ -1775,10 +1814,25 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1">
-                      WhatsApp (apenas números) *
+                    <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-stone-400" />
+                      <span>E-mail da Loja</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={editBizEmail}
+                      onChange={e => setEditBizEmail(e.target.value)}
+                      placeholder="lojista@exemplo.com"
+                      className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-stone-400" />
+                      <span>WhatsApp *</span>
                     </label>
                     <input
                       type="text"
@@ -1786,7 +1840,7 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                       value={editBizWhatsapp}
                       onChange={e => setEditBizWhatsapp(e.target.value)}
                       placeholder="61999999999"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </div>
 
@@ -1797,9 +1851,9 @@ CREATE POLICY "Permitir update em businesses" ON public.businesses FOR UPDATE US
                     <select
                       value={editBizCategoryId}
                       onChange={e => setEditBizCategoryId(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     >
-                      <option value="">Selecione uma categoria...</option>
+                      <option value="">Selecione...</option>
                       {categories.map(c => (
                         <option key={c.id} value={c.id}>
                           {c.name}

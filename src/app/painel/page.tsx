@@ -58,6 +58,7 @@ import {
   ArrowRight,
   ArrowLeft,
   RefreshCw,
+  Mail,
 } from "lucide-react";
 
 function DashboardContent() {
@@ -73,6 +74,7 @@ function DashboardContent() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [userEmail, setUserEmail] = useState<string>("");
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     text: string;
@@ -180,6 +182,7 @@ function DashboardContent() {
         setAcceptsPix(demoBiz.accepts_pix !== false);
         setAcceptsCard(Boolean(demoBiz.accepts_card));
         setProducts(demoBiz.products || []);
+        setUserEmail(demoBiz.email || "vovo.elza@feiradigital.com");
         setLoading(false);
         return;
       }
@@ -193,6 +196,8 @@ function DashboardContent() {
         router.push("/login");
         return;
       }
+
+      setUserEmail(user.email || "");
 
       // Load Categories
       const { data: catData } = await supabase.from("categories").select("*");
@@ -1993,6 +1998,30 @@ function DashboardContent() {
                           ⚡ Imagens são compactadas em WebP no navegador para carregar instantaneamente.
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* E-mail Cadastrado da Conta de Acesso */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Mail className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                          E-mail Cadastrado (Login & Recuperação)
+                        </span>
+                        <strong className="text-xs sm:text-sm font-semibold text-stone-900 block select-all">
+                          {userEmail || "Sem e-mail identificado"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Conta Ativa
+                      </span>
                     </div>
                   </div>
 
