@@ -150,7 +150,7 @@ function DashboardContent() {
   const [batchModalError, setBatchModalError] = useState<string | null>(null);
   const [isSavingBatch, setIsSavingBatch] = useState(false);
 
-  // Estados de Monetização & Impulsionamento
+  // Estados de Monetização & Impulsionamento Mercado Pago
   const [isBoostModalOpen, setIsBoostModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{
     id: string;
@@ -161,6 +161,14 @@ function DashboardContent() {
   } | null>(null);
   const [isPixCopied, setIsPixCopied] = useState(false);
   const [isActivatingBoost, setIsActivatingBoost] = useState(false);
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [pixPaymentData, setPixPaymentData] = useState<{
+    paymentId: string;
+    qrCode: string;
+    qrCodeBase64: string;
+  } | null>(null);
+  const [isPaymentApproved, setIsPaymentApproved] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   // Load User & Business data
   useEffect(() => {
@@ -751,7 +759,144 @@ function DashboardContent() {
     return data.publicUrl;
   };
 
-  // Ativação de Destaque Patrocinado / Impulsionamento Pix
+  // Abertura do Modal e Geração Automática do Pix Mercado Pago
+  const handleOpenBoostModal = async (plan: {
+    id: string;
+    title: string;
+    price: number;
+    days: number;
+    desc: string;
+  }) => {
+    setSelectedPlan(plan);
+    setIsPixCopied(false);
+    setIsPaymentApproved(false);
+    setPixPaymentData(null);
+    setIsBoostModalOpen(true);
+    setIsGeneratingPix(true);
+
+    try {
+      const res = await fetch("/api/payments/pix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: business?.id || "demo-biz",
+          planId: plan.id,
+          planTitle: plan.title,
+          planPrice: plan.price,
+          planDays: plan.days,
+          payerEmail: userEmail || business?.email || "contato@feiradigital.com.br",
+          payerName: name || business?.name || "Empreendedor",
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.paymentId) {
+        setPixPaymentData({
+          paymentId: data.paymentId,
+          qrCode: data.qrCode,
+          qrCodeBase64: data.qrCodeBase64,
+        });
+      }
+    } catch {
+      // Falha silenciosa no Pix dinâmico, mantém chave Pix estática de contingência
+    } finally {
+      setIsGeneratingPix(false);
+    }
+  };
+
+  // Polling em Segundo Plano: detecta pagamento aprovado em tempo real
+  useEffect(() => {
+    if (!isBoostModalOpen || !pixPaymentData?.paymentId || isPaymentApproved) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/payments/pix?paymentId=${pixPaymentData.paymentId}`);
+        const check = await res.json();
+        if (check.isApproved) {
+          setIsPaymentApproved(true);
+          clearInterval(interval);
+
+          const isDiamond = selectedPlan?.id === "diamond_monthly";
+          const isPro = selectedPlan?.id === "pro_monthly";
+          const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
+          const newProductLimit = isDiamond ? 50 : isPro ? 20 : 5;
+
+          if (business) {
+            setBusiness({
+              ...business,
+              is_featured: true,
+              plan_tier: newPlanTier,
+              product_limit: newProductLimit,
+              is_verified: true,
+            });
+          }
+
+          setNotification({
+            type: "success",
+            text: `🎉 Pagamento aprovado pelo Mercado Pago! Seu plano foi ativado com sucesso!`,
+          });
+
+          setTimeout(() => {
+            setIsBoostModalOpen(false);
+          }, 2500);
+        }
+      } catch {
+        // Ignora erros temporários no polling
+      }
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [isBoostModalOpen, pixPaymentData, isPaymentApproved, business, selectedPlan]);
+
+  // Consulta Manual Imediata ("Verificar Pagamento Agora")
+  const handleManualCheckPayment = async () => {
+    if (!pixPaymentData?.paymentId) return;
+    setIsCheckingPayment(true);
+    try {
+      const res = await fetch(`/api/payments/pix?paymentId=${pixPaymentData.paymentId}`);
+      const check = await res.json();
+      if (check.isApproved) {
+        setIsPaymentApproved(true);
+        const isDiamond = selectedPlan?.id === "diamond_monthly";
+        const isPro = selectedPlan?.id === "pro_monthly";
+        const newPlanTier = isDiamond ? "diamond" : isPro ? "pro" : "free";
+        const newProductLimit = isDiamond ? 50 : isPro ? 20 : 5;
+
+        if (business) {
+          setBusiness({
+            ...business,
+            is_featured: true,
+            plan_tier: newPlanTier,
+            product_limit: newProductLimit,
+            is_verified: true,
+          });
+        }
+
+        setNotification({
+          type: "success",
+          text: `🎉 Pagamento confirmado pelo Mercado Pago! Seu plano foi ativado com sucesso!`,
+        });
+
+        setTimeout(() => {
+          setIsBoostModalOpen(false);
+        }, 2000);
+      } else {
+        setNotification({
+          type: "error",
+          text: "O pagamento ainda não foi identificado. Conclua o Pix no app do seu banco e clique em Verificar novamente.",
+        });
+      }
+    } catch {
+      setNotification({
+        type: "error",
+        text: "Erro ao consultar status no Mercado Pago.",
+      });
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  };
+
+  // Ativação de Destaque Patrocinado / Impulsionamento Pix (Fallback / Contingência)
   const handleActivateBoost = async () => {
     if (!business || !selectedPlan) return;
     setIsActivatingBoost(true);
@@ -810,6 +955,7 @@ function DashboardContent() {
       setIsActivatingBoost(false);
     }
   };
+
 
   // Standard Product Image Input
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1814,15 +1960,13 @@ function DashboardContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedPlan({
+                  handleOpenBoostModal({
                     id: "boost_3_days",
                     title: "Turbo Fim de Semana (3 Dias no Topo)",
                     price: 9.90,
                     days: 3,
                     desc: "Sua vitrine fixada em primeiro lugar na sua região durante 3 dias seguidos.",
                   });
-                  setIsPixCopied(false);
-                  setIsBoostModalOpen(true);
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
@@ -1851,15 +1995,13 @@ function DashboardContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedPlan({
+                  handleOpenBoostModal({
                     id: "boost_7_days",
                     title: "Semana de Sucesso (7 Dias no Topo)",
                     price: 19.90,
                     days: 7,
                     desc: "7 dias completos de posicionamento no topo com selo DESTAQUE dourado.",
                   });
-                  setIsPixCopied(false);
-                  setIsBoostModalOpen(true);
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
@@ -1885,15 +2027,13 @@ function DashboardContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedPlan({
+                  handleOpenBoostModal({
                     id: "pro_monthly",
                     title: "Assinatura Mensal MEI Pro",
                     price: 29.90,
                     days: 30,
                     desc: "30 dias de destaque no topo, expansão para 20 produtos no catálogo e selo oficial de MEI Verificado.",
                   });
-                  setIsPixCopied(false);
-                  setIsBoostModalOpen(true);
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
@@ -1919,15 +2059,13 @@ function DashboardContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedPlan({
+                  handleOpenBoostModal({
                     id: "diamond_monthly",
                     title: "Assinatura Diamante (50 Produtos + Topo)",
                     price: 49.90,
                     days: 30,
                     desc: "30 dias de destaque topo prioritário, limite de 50 produtos no catálogo e selo oficial de verificado.",
                   });
-                  setIsPixCopied(false);
-                  setIsBoostModalOpen(true);
                 }}
                 className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer text-center"
               >
@@ -2823,73 +2961,141 @@ function DashboardContent() {
               <p className="text-[11px] text-stone-500">{selectedPlan.desc}</p>
             </div>
 
-            {/* QR Code e Chave Pix */}
-            <div className="space-y-3 text-center">
-              <div className="w-44 h-44 mx-auto bg-stone-50 rounded-2xl border-2 border-stone-200 flex flex-col items-center justify-center p-3 shadow-inner">
-                <QrCode className="w-32 h-32 text-stone-800" />
-                <span className="text-[10px] font-bold text-emerald-700 mt-1">
-                  Pix Oficial Feira Digital
-                </span>
+            {/* Estado 1: Pagamento Aprovado Instantaneamente */}
+            {isPaymentApproved ? (
+              <div className="py-6 px-4 text-center space-y-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center animate-bounce">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <h4 className="text-base font-black text-emerald-900">
+                  🎉 Pagamento Aprovado pelo Mercado Pago!
+                </h4>
+                <p className="text-xs text-emerald-700 leading-relaxed">
+                  Identificamos seu Pix em tempo real! Seu plano e vitrine no topo já foram ativados com sucesso.
+                </p>
+                <div className="inline-flex items-center gap-2 text-xs font-bold text-emerald-800 bg-white px-3 py-1.5 rounded-full border border-emerald-300">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  Selo Destaque Aplicado
+                </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Chave Pix Copia e Cola (Chave Aleatória):
-                </label>
-                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-mono text-stone-700">
-                  <span className="truncate flex-1 text-left select-all">
-                    9cdcc031-fb3e-4c39-83f3-8bca8b25b61f
+            ) : isGeneratingPix ? (
+              /* Estado 2: Gerando Pix no Mercado Pago */
+              <div className="py-12 px-4 text-center space-y-3 bg-stone-50 rounded-2xl border border-stone-200">
+                <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mx-auto" />
+                <h4 className="text-sm font-bold text-stone-800">
+                  Gerando QR Code Pix Oficial...
+                </h4>
+                <p className="text-xs text-stone-500">
+                  Conectando com o Mercado Pago para criar seu Pix dinâmico exclusivo.
+                </p>
+              </div>
+            ) : (
+              /* Estado 3: Pix Pronto para Pagamento com Verificação em Tempo Real */
+              <div className="space-y-4">
+                {/* QR Code Dinâmico Oficial do Mercado Pago */}
+                <div className="w-52 h-52 mx-auto bg-white rounded-2xl border-2 border-emerald-500/30 p-3 shadow-md flex flex-col items-center justify-center relative">
+                  {pixPaymentData?.qrCodeBase64 ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`data:image/png;base64,${pixPaymentData.qrCodeBase64}`}
+                      alt="QR Code Pix Mercado Pago"
+                      className="w-40 h-40 object-contain mx-auto"
+                    />
+                  ) : (
+                    <QrCode className="w-32 h-32 text-stone-800" />
+                  )}
+                  <span className="text-[10px] font-bold text-emerald-700 mt-1 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    Pix Dinâmico Oficial Mercado Pago
                   </span>
+                </div>
+
+                {/* Chave Pix Copia e Cola Oficial */}
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1 text-center">
+                    {pixPaymentData?.qrCode
+                      ? "Pix Copia e Cola (código oficial de pagamento):"
+                      : "Chave Pix Alternativa (Chave Aleatória):"}
+                  </label>
+                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-stone-100 border border-stone-200 text-xs font-mono text-stone-700">
+                    <span className="truncate flex-1 text-left select-all">
+                      {pixPaymentData?.qrCode || "9cdcc031-fb3e-4c39-83f3-8bca8b25b61f"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const codeToCopy =
+                          pixPaymentData?.qrCode || "9cdcc031-fb3e-4c39-83f3-8bca8b25b61f";
+                        navigator.clipboard.writeText(codeToCopy);
+                        setIsPixCopied(true);
+                        setTimeout(() => setIsPixCopied(false), 2500);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-stone-200 font-sans font-bold text-[11px] text-stone-800 hover:bg-stone-50 transition-all cursor-pointer shrink-0"
+                    >
+                      {isPixCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-stone-400" />
+                          <span>Copiar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status em Tempo Real & Botão de Verificação */}
+                <div className="space-y-2 pt-2 border-t border-stone-100">
+                  <div className="flex items-center justify-center gap-2 text-xs text-stone-600 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span>Aguardando pagamento... Verificando automaticamente.</span>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText("9cdcc031-fb3e-4c39-83f3-8bca8b25b61f");
-                      setIsPixCopied(true);
-                      setTimeout(() => setIsPixCopied(false), 2500);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-stone-200 font-sans font-bold text-[11px] text-stone-800 hover:bg-stone-50 transition-all cursor-pointer"
+                    onClick={handleManualCheckPayment}
+                    disabled={isCheckingPayment || !pixPaymentData?.paymentId}
+                    className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {isPixCopied ? (
+                    {isCheckingPayment ? (
                       <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700">Copiado!</span>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Consultando Mercado Pago...</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3.5 h-3.5 text-stone-400" />
-                        <span>Copiar</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Verificar Pagamento Agora</span>
                       </>
                     )}
                   </button>
+
+                  {/* Opção de Contingência Manual */}
+                  <details className="text-[11px] text-stone-500 pt-1">
+                    <summary className="cursor-pointer hover:text-stone-800 text-center select-none font-medium">
+                      Problemas com o QR Code dinâmico? Clique aqui
+                    </summary>
+                    <div className="mt-2 p-2.5 rounded-xl bg-stone-50 border border-stone-200 space-y-2">
+                      <p className="text-[10px] text-stone-600">
+                        Chave Aleatória de contingência:{" "}
+                        <code className="font-mono font-bold select-all">9cdcc031-fb3e-4c39-83f3-8bca8b25b61f</code>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleActivateBoost}
+                        disabled={isActivatingBoost}
+                        className="w-full py-1.5 px-3 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-[11px] cursor-pointer"
+                      >
+                        {isActivatingBoost ? "Ativando..." : "Confirmar Manualmente"}
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
-            </div>
-
-            {/* Confirmação e Ativação */}
-            <div className="space-y-2 pt-2 border-t border-stone-100">
-              <button
-                type="button"
-                onClick={handleActivateBoost}
-                disabled={isActivatingBoost}
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isActivatingBoost ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Confirmando ativação...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Já Realizei o Pix (Ativar Destaque)</span>
-                  </>
-                )}
-              </button>
-
-              <p className="text-[10px] text-stone-400 text-center">
-                Ao clicar, o sistema valida a transação e aplica o selo dourado no topo instantaneamente.
-              </p>
-            </div>
+            )}
           </div>
         </div>
       )}
