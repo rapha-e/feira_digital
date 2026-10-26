@@ -38,20 +38,33 @@ function LoginForm() {
 
     const supabase = createClient();
 
+    // Mapeamento de usuários amigáveis para contas de e-mail no Supabase
+    let resolvedEmail = email.trim().toLowerCase();
+    const USERNAME_MAP: Record<string, string> = {
+      "disruptive": "rafa.busy@gmail.com",
+      "disruptive1": "rafa.busy+1@gmail.com",
+      "disruptive2": "rafa.busy+2@gmail.com",
+      "disruptive3": "rafa.busy+3@gmail.com",
+    };
+
+    if (USERNAME_MAP[resolvedEmail]) {
+      resolvedEmail = USERNAME_MAP[resolvedEmail];
+    }
+
     try {
       if (authMode === "forgot") {
         const origin = typeof window !== "undefined" ? window.location.origin : "https://feira-digital-xi.vercel.app";
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(resolvedEmail, {
           redirectTo: `${origin}/redefinir-senha`,
         });
         if (error) throw error;
         setMessage({
           type: "success",
-          text: "Link de recuperação enviado com sucesso! Verifique sua caixa de entrada e a pasta de spam.",
+          text: `Link de recuperação enviado para o e-mail cadastrado! Verifique sua caixa de entrada e a pasta de spam.`,
         });
       } else if (authMode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: resolvedEmail,
           password,
         });
         if (error) throw error;
@@ -62,7 +75,7 @@ function LoginForm() {
         setAuthMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: resolvedEmail,
           password,
         });
         if (error) throw error;
@@ -138,16 +151,16 @@ function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-            E-mail cadastrado
+            E-mail ou Usuário de Acesso
           </label>
           <div className="relative">
             <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
-              type="email"
+              type="text"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="seuemail@exemplo.com"
+              placeholder="seuemail@exemplo.com ou Disruptive"
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-900 placeholder:text-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-xs"
             />
           </div>
